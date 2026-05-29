@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAL Scores Composer V1.0</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh}
+.hdr{background:#16213e;padding:14px 24px;border-bottom:2px solid #c1121f;display:flex;align-items:center;gap:16px}
+.hdr h1{font-size:17px;font-weight:700;color:#fff}
+.hdr p{font-size:11px;color:#888;margin-top:2px}
+.wrap{display:flex;gap:14px;padding:14px;max-width:1280px;margin:0 auto}
+.form{flex:1;min-width:0}
+.right{width:410px;flex-shrink:0}
+@media(max-width:900px){.wrap{flex-direction:column}.right{width:100%}}
+.card{background:#16213e;border:1px solid #0f3460;border-radius:8px;padding:14px;margin-bottom:10px}
+.ct{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.row{display:flex;gap:8px;margin-bottom:7px;align-items:center}
+.lbl{font-size:11.5px;color:#999;white-space:nowrap;min-width:88px}
+input[type=text],input[type=number],input[type=url],select{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:6px 9px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s}
+input[type=text]:focus,input[type=number]:focus,input[type=url]:focus,select:focus{outline:none;border-color:#c1121f}
+input::placeholder{color:#3a4a5a}
+input[type=number]{width:64px;text-align:center}
+.score-row{display:flex;gap:8px;margin-bottom:5px;align-items:center}
+.score-row .nm{flex:1;font-size:13px;color:#e0e0e0;padding:5px 0}
+.score-row .nm.dim{color:#5a6a7a;font-style:italic}
+.tech-row{display:flex;gap:6px;margin-bottom:5px;align-items:center}
+.tech-row input:nth-child(1){flex:1.2}
+.tech-row select{flex:0 0 110px;width:auto}
+.tech-row input:nth-child(3){flex:2}
+.rm{background:none;border:none;color:#3a5a7a;cursor:pointer;font-size:16px;padding:2px 5px;line-height:1;border-radius:3px;flex-shrink:0}
+.rm:hover{color:#c1121f}
+.addrow{background:none;border:1px dashed #1a3050;color:#4a6a8a;cursor:pointer;font-size:12px;padding:5px 10px;border-radius:4px;width:100%;text-align:left;margin-top:2px;font-family:inherit}
+.addrow:hover{border-color:#c1121f;color:#c1121f}
+.hint{font-size:10.5px;color:#3a5a7a;margin-top:3px}
+.hint.warn{color:#e8a020}
+.pv-hdr{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:8px}
+.pv-meta{font-size:11px;color:#667;margin-bottom:4px;word-break:break-all}
+.pv-meta b{color:#aaa;font-weight:600}
+.pvbody{font-family:'Courier New',monospace;font-size:11.5px;white-space:pre-wrap;color:#b8c8d8;line-height:1.55;background:#0d1b2a;border:1px solid #0f3460;border-radius:6px;padding:12px;max-height:520px;overflow-y:auto;word-break:break-word}
+.sendbtn{display:block;width:100%;margin-top:10px;padding:11px;background:#c1121f;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;font-family:inherit}
+.sendbtn:hover{background:#a00f1a}
+.cpybtn{display:block;width:100%;margin-top:5px;padding:8px;background:none;color:#4a6a8a;border:1px solid #0f3460;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s}
+.cpybtn:hover{border-color:#4a6a8a;color:#ccc}
+.minibtn{background:none;border:1px solid #0f3460;color:#4a6a8a;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .15s}
+.minibtn:hover{border-color:#c1121f;color:#c1121f}
+.tabs{display:flex;gap:2px;padding:8px 24px 0;background:#16213e;border-bottom:2px solid #0f3460}
+.tab-btn{padding:7px 18px;background:none;border:1px solid transparent;border-radius:6px 6px 0 0;border-bottom:none;color:#666;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;letter-spacing:.04em;transition:all .15s}
+.tab-btn.active{background:#1a1a2e;color:#e0e0e0;border-color:#0f3460;margin-bottom:-2px}
+.tab-btn:hover:not(.active){color:#aaa}
+.settings{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.settings input[type=url]{flex:1;min-width:200px}
+.empty{color:#5a6a7a;font-size:12px;font-style:italic;padding:8px 0}
+textarea{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:8px 10px;font-size:12px;font-family:'Courier New',monospace;width:100%;min-height:120px;resize:vertical;transition:border-color .15s}
+textarea:focus{outline:none;border-color:#c1121f}
+.exitbtn{position:fixed;top:14px;right:24px;z-index:1000;background:#0d1b2a;border:1px solid #c1121f;color:#c1121f;padding:6px 14px;border-radius:4px;font-size:11.5px;font-weight:600;letter-spacing:.04em;cursor:pointer;font-family:inherit;text-transform:uppercase;transition:all .15s}
+.exitbtn:hover{background:#c1121f;color:#fff}
+.exitbtn:disabled{opacity:.5;cursor:default;background:#0d1b2a;color:#666;border-color:#333}
+.goodbye{position:fixed;inset:0;background:#1a1a2e;color:#e0e0e0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;font-family:'Segoe UI',Tahoma,sans-serif;text-align:center;padding:24px}
+.goodbye h2{font-size:22px;color:#c1121f;margin-bottom:14px}
+.goodbye p{font-size:14px;color:#aaa;max-width:480px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>PAL Scores Composer V1.0</h1>
+    <p>Pop-A-Lock of Northern NJ &mdash; fill in numbers, then click Open in Gmail</p>
+  </div>
+</div>
+<button class="exitbtn" id="exitBtn" onclick="exitComposer()" title="Stop the local server and close this composer">&times; Exit</button>
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('bat',this)">Battery Scores</button>
+  <button class="tab-btn" onclick="switchTab('svc',this)">Other SVC Scores</button>
+  <button class="tab-btn" onclick="switchTab('techs',this)">Techs</button>
+</div>
+
+<!-- ─────────── Battery Scores tab ─────────── -->
+<div id="batTab">
+<div class="wrap">
+<div class="form">
+  <div class="card">
+    <div class="ct">Battery Scores &mdash; 1 (best) to 5 (worst)</div>
+    <div class="hint" style="margin-bottom:10px">Leave blank to keep the existing value. Unscored techs default to 5 in the router.</div>
+    <div id="batList"></div>
+  </div>
+</div>
+<div class="right">
+  <div class="card" style="position:sticky;top:14px">
+    <div class="pv-hdr">Email Preview</div>
+    <div class="pv-meta">To: <b id="batPvTo"></b></div>
+    <div class="pv-meta">Subject: <b id="batPvSub"></b></div>
+    <div id="batPvBody" class="pvbody"></div>
+    <button class="sendbtn" onclick="openGmail('bat')">&#9993; Open in Gmail</button>
+    <button class="cpybtn" onclick="copyBody('bat')">Copy email body</button>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ─────────── Other SVC Scores tab ─────────── -->
+<div id="svcTab" style="display:none">
+<div class="wrap">
+<div class="form">
+  <div class="card">
+    <div class="ct">Other SVC Scores &mdash; 1 (best) to 3 (worst)</div>
+    <div class="hint" style="margin-bottom:10px">Leave blank to keep the existing value. Unscored techs default to 3 in the router.</div>
+    <div id="svcList"></div>
+  </div>
+</div>
+<div class="right">
+  <div class="card" style="position:sticky;top:14px">
+    <div class="pv-hdr">Email Preview</div>
+    <div class="pv-meta">To: <b id="svcPvTo"></b></div>
+    <div class="pv-meta">Subject: <b id="svcPvSub"></b></div>
+    <div id="svcPvBody" class="pvbody"></div>
+    <button class="sendbtn" onclick="openGmail('svc')">&#9993; Open in Gmail</button>
+    <button class="cpybtn" onclick="copyBody('svc')">Copy email body</button>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ─────────── Techs tab ─────────── -->
+<div id="techsTab" style="display:none">
+<div class="wrap">
+<div class="form">
+  <div class="card">
+    <div class="ct">Google Sheet (shared with Schedule Composer)</div>
+    <div class="settings">
+      <span class="lbl" style="min-width:auto">CSV URL</span>
+      <input type="url" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?...&amp;output=csv" oninput="saveSheetUrl()">
+      <button class="minibtn" onclick="refreshFromSheet()">Refresh from Sheet</button>
+    </div>
+    <div class="settings" style="margin-top:6px">
+      <span class="lbl" style="min-width:auto">Editor URL</span>
+      <input type="url" id="editorUrl" placeholder="https://docs.google.com/spreadsheets/d/{sheet-id}/edit (optional)" oninput="saveEditorUrl()">
+      <button class="minibtn" onclick="openSheet()">Edit in Google Sheets</button>
+    </div>
+    <div class="hint"><b>CSV URL</b>: from File &rarr; Share &rarr; Publish to web &rarr; CSV. Used by Refresh from Sheet. <b>Editor URL</b>: the regular sheet URL in your address bar when you're editing (<code>.../edit#gid=0</code>). Used by the Edit button. Publish-to-Web URLs and Editor URLs use different IDs and can't be derived from each other &mdash; paste both. Both URLs are shared with the Schedule Composer V1.4 so tech names stay consistent across tools.</div>
+    <div class="hint warn" id="sheetStatus" style="margin-top:6px"></div>
+    <div class="hint" style="margin-top:10px;color:#7a8a9a"><b>If Refresh from Sheet fails</b> (browsers block CSV fetches from <code>file://</code> URLs), open the composer via <code>launch_tech_scores.bat</code> in the Navigation folder &mdash; it serves this page over localhost so fetches work. As a fallback, paste the CSV directly below.</div>
+    <div style="margin-top:8px">
+      <textarea id="csvPaste" placeholder="Or paste raw CSV here:&#10;Canonical Name,Role,Aliases&#10;Mike Tomaso,battery,&quot;Mike T, M Tomaso&quot;&#10;..."></textarea>
+      <button class="minibtn" onclick="ingestPastedCsv()" style="margin-top:6px">Load from pasted CSV</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Canonical Techs &mdash; <span id="techCount">0</span> total</div>
+    <div id="techsList"></div>
+    <button class="addrow" onclick="addTechRow()" id="addTechBtn">+ Add tech</button>
+    <div class="hint" style="margin-top:8px">Role <b>battery</b> &rarr; appears on the Battery Scores tab. Role <b>road</b> &rarr; appears on the Other SVC Scores tab. Aliases are alternate spellings the monitor will accept when matching schedule-email names to this canonical name (e.g. <i>Mike T, M Tomaso</i>).</div>
+  </div>
+</div>
+<div class="right">
+  <div class="card" style="position:sticky;top:14px">
+    <div class="pv-hdr">Email Preview &mdash; Tech Roster Update</div>
+    <div class="pv-meta">To: <b id="rosPvTo"></b></div>
+    <div class="pv-meta">Subject: <b id="rosPvSub"></b></div>
+    <div id="rosPvBody" class="pvbody"></div>
+    <button class="sendbtn" onclick="openGmail('ros')">&#9993; Send Roster Update</button>
+    <button class="cpybtn" onclick="copyBody('ros')">Copy email body</button>
+    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + aliases to the monitor so it can resolve schedule-email names that don't exactly match. Send after you edit the Sheet.</div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+const RECIPIENTS = ['palautonav@gmail.com'];
+
+// State stored in localStorage:
+//   pal_scores_techs  -> [{name, role, aliases}]   (when no Sheet URL configured)
+//   pal_scores_sheet  -> CSV URL string (Publish-to-Web)
+//   pal_scores_editor -> Editor URL string (regular /edit URL)
+//   pal_scores_battery -> {name: score}
+//   pal_scores_other   -> {name: score}
+const KEY_TECHS  = 'pal_scores_techs';
+const KEY_SHEET  = 'pal_scores_sheet';
+const KEY_EDITOR = 'pal_scores_editor';
+const KEY_BAT    = 'pal_scores_battery';
+const KEY_SVC    = 'pal_scores_other';
+
+let techs = [];          // [{name, role, aliases:[]}]
+let batScores = {};      // {name: digit}  -- in-progress values shown on the Battery tab
+let svcScores = {};      // {name: digit}
+let sheetUrl  = '';
+let editorUrl = '';
+let sheetMode = false;   // true when techs came from the Sheet (read-only)
+
+// ── State persistence ────────────────────────────────────────────────────────
+function loadState() {
+  try { techs = JSON.parse(localStorage.getItem(KEY_TECHS) || '[]'); } catch { techs = []; }
+  try { batScores = JSON.parse(localStorage.getItem(KEY_BAT) || '{}'); } catch { batScores = {}; }
+  try { svcScores = JSON.parse(localStorage.getItem(KEY_SVC) || '{}'); } catch { svcScores = {}; }
+  sheetUrl  = localStorage.getItem(KEY_SHEET)  || '';
+  editorUrl = localStorage.getItem(KEY_EDITOR) || '';
+}
+
+function saveTechs()  { localStorage.setItem(KEY_TECHS, JSON.stringify(techs)); }
+function saveBat()    { localStorage.setItem(KEY_BAT,   JSON.stringify(batScores)); }
+function saveSvc()    { localStorage.setItem(KEY_SVC,   JSON.stringify(svcScores)); }
+function saveSheetUrl() {
+  sheetUrl = document.getElementById('sheetUrl').value.trim();
+  localStorage.setItem(KEY_SHEET, sheetUrl);
+}
+function saveEditorUrl() {
+  editorUrl = document.getElementById('editorUrl').value.trim();
+  localStorage.setItem(KEY_EDITOR, editorUrl);
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('batTab').style.display   = tab === 'bat'   ? '' : 'none';
+  document.getElementById('svcTab').style.display   = tab === 'svc'   ? '' : 'none';
+  document.getElementById('techsTab').style.display = tab === 'techs' ? '' : 'none';
+  if (tab === 'bat')   renderBat();
+  if (tab === 'svc')   renderSvc();
+  if (tab === 'techs') renderTechs();
+  window.scrollTo(0, 0);
+}
+
+// ── Today's date in M/D/YYYY ────────────────────────────────────────────────
+function todayStr() {
+  const d = new Date();
+  return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+// ── Battery Scores tab render ───────────────────────────────────────────────
+function renderBat() {
+  const list = document.getElementById('batList');
+  const batteryTechs = techs.filter(t => (t.role || '').toLowerCase() === 'battery');
+  if (!batteryTechs.length) {
+    list.innerHTML = '<div class="empty">No battery techs yet &mdash; add some on the Techs tab.</div>';
+  } else {
+    list.innerHTML = '';
+    batteryTechs.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'score-row';
+      const cur = batScores[t.name] != null ? batScores[t.name] : '';
+      row.innerHTML =
+        `<div class="nm">${escapeHtml(t.name)}</div>` +
+        `<input type="number" min="1" max="5" step="1" value="${cur}" ` +
+        `data-name="${escapeAttr(t.name)}" oninput="onBatInput(this)">`;
+      list.appendChild(row);
+    });
+  }
+  updateBatPreview();
+}
+
+function onBatInput(input) {
+  const name = input.dataset.name;
+  const raw  = input.value.trim();
+  if (raw === '') {
+    delete batScores[name];
+  } else {
+    const n = parseInt(raw, 10);
+    if (n >= 1 && n <= 5) batScores[name] = n;
+    else delete batScores[name];
+  }
+  saveBat();
+  updateBatPreview();
+}
+
+function buildBatBody() {
+  const date = todayStr();
+  const lines = [`Battery Scores ${date}`, ''];
+  const names = Object.keys(batScores).sort();
+  if (!names.length) return lines.join('\n') + '(no scores entered)';
+  for (const n of names) lines.push(`${n}: ${batScores[n]}`);
+  return lines.join('\n');
+}
+
+function updateBatPreview() {
+  document.getElementById('batPvBody').textContent = buildBatBody();
+  document.getElementById('batPvSub').textContent  = `Battery Scores ${todayStr()}`;
+  document.getElementById('batPvTo').textContent   = RECIPIENTS.join(', ');
+}
+
+// ── Other SVC Scores tab render ─────────────────────────────────────────────
+function renderSvc() {
+  const list = document.getElementById('svcList');
+  const roadTechs = techs.filter(t => (t.role || '').toLowerCase() === 'road');
+  if (!roadTechs.length) {
+    list.innerHTML = '<div class="empty">No road-service techs yet &mdash; add some on the Techs tab.</div>';
+  } else {
+    list.innerHTML = '';
+    roadTechs.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'score-row';
+      const cur = svcScores[t.name] != null ? svcScores[t.name] : '';
+      row.innerHTML =
+        `<div class="nm">${escapeHtml(t.name)}</div>` +
+        `<input type="number" min="1" max="3" step="1" value="${cur}" ` +
+        `data-name="${escapeAttr(t.name)}" oninput="onSvcInput(this)">`;
+      list.appendChild(row);
+    });
+  }
+  updateSvcPreview();
+}
+
+function onSvcInput(input) {
+  const name = input.dataset.name;
+  const raw  = input.value.trim();
+  if (raw === '') {
+    delete svcScores[name];
+  } else {
+    const n = parseInt(raw, 10);
+    if (n >= 1 && n <= 3) svcScores[name] = n;
+    else delete svcScores[name];
+  }
+  saveSvc();
+  updateSvcPreview();
+}
+
+function buildSvcBody() {
+  const date = todayStr();
+  const lines = [`Other SVC Scores ${date}`, ''];
+  const names = Object.keys(svcScores).sort();
+  if (!names.length) return lines.join('\n') + '(no scores entered)';
+  for (const n of names) lines.push(`${n}: ${svcScores[n]}`);
+  return lines.join('\n');
+}
+
+function updateSvcPreview() {
+  document.getElementById('svcPvBody').textContent = buildSvcBody();
+  document.getElementById('svcPvSub').textContent  = `Other SVC Scores ${todayStr()}`;
+  document.getElementById('svcPvTo').textContent   = RECIPIENTS.join(', ');
+}
+
+// ── Techs tab render ────────────────────────────────────────────────────────
+function renderTechs() {
+  document.getElementById('sheetUrl').value  = sheetUrl;
+  document.getElementById('editorUrl').value = editorUrl;
+  document.getElementById('techCount').textContent = techs.length;
+  const list = document.getElementById('techsList');
+  const addBtn = document.getElementById('addTechBtn');
+
+  if (sheetMode) {
+    // Read-only display
+    addBtn.style.display = 'none';
+    if (!techs.length) {
+      list.innerHTML = '<div class="empty">Sheet returned no rows.</div>';
+    } else {
+      list.innerHTML = '';
+      techs.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'tech-row';
+        const aliases = (t.aliases || []).join(', ');
+        row.innerHTML =
+          `<div class="nm" style="flex:1.2">${escapeHtml(t.name)}</div>` +
+          `<div class="nm" style="flex:0 0 110px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
+          `<div class="nm" style="flex:2;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>`;
+        list.appendChild(row);
+      });
+    }
+  } else {
+    addBtn.style.display = '';
+    if (!techs.length) {
+      list.innerHTML = '<div class="empty">No techs yet &mdash; add some below, or paste a Google Sheet CSV URL above and click Refresh.</div>';
+    } else {
+      list.innerHTML = '';
+      techs.forEach((t, i) => list.appendChild(buildEditableRow(t, i)));
+    }
+  }
+  updateRosPreview();
+}
+
+function buildEditableRow(t, i) {
+  const row = document.createElement('div');
+  row.className = 'tech-row';
+  row.innerHTML =
+    `<input type="text" value="${escapeAttr(t.name)}" placeholder="Canonical name" oninput="editTech(${i},'name',this.value)">` +
+    `<select onchange="editTech(${i},'role',this.value)">` +
+      `<option value="battery"${t.role==='battery'?' selected':''}>battery</option>` +
+      `<option value="road"${t.role==='road'?' selected':''}>road</option>` +
+    `</select>` +
+    `<input type="text" value="${escapeAttr((t.aliases||[]).join(', '))}" placeholder="alias1, alias2" oninput="editTech(${i},'aliases',this.value)">` +
+    `<button class="rm" onclick="removeTech(${i})" title="Remove">&times;</button>`;
+  return row;
+}
+
+function addTechRow() {
+  techs.push({name: '', role: 'road', aliases: []});
+  saveTechs();
+  renderTechs();
+  // Focus the new row's name input
+  const inputs = document.querySelectorAll('#techsList .tech-row input[type=text]');
+  if (inputs.length) inputs[inputs.length - 2].focus();   // -2 because aliases is also text
+}
+
+function removeTech(i) {
+  techs.splice(i, 1);
+  saveTechs();
+  renderTechs();
+}
+
+function editTech(i, field, value) {
+  if (field === 'aliases') {
+    techs[i].aliases = value.split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    techs[i][field] = value;
+  }
+  saveTechs();
+  document.getElementById('techCount').textContent = techs.length;
+  updateRosPreview();
+}
+
+// ── Roster Update preview ───────────────────────────────────────────────────
+function buildRosBody() {
+  const date = todayStr();
+  const lines = [`Tech Roster Update ${date}`, ''];
+  const usable = techs.filter(t => t.name && t.name.trim());
+  if (!usable.length) return lines.join('\n') + '(no techs)';
+  for (const t of usable) {
+    const role = (t.role || 'road').toLowerCase();
+    const aliases = (t.aliases || []).join(', ');
+    lines.push(aliases ? `${t.name} | ${role} | ${aliases}` : `${t.name} | ${role}`);
+  }
+  return lines.join('\n');
+}
+
+function updateRosPreview() {
+  document.getElementById('rosPvBody').textContent = buildRosBody();
+  document.getElementById('rosPvSub').textContent  = `Tech Roster Update ${todayStr()}`;
+  document.getElementById('rosPvTo').textContent   = RECIPIENTS.join(', ');
+}
+
+// ── Google Sheet CSV ingestion ──────────────────────────────────────────────
+// Route the fetch through the launcher's /proxy endpoint when running
+// under localhost so we sidestep browser CORS entirely.  Direct fetches
+// to docs.google.com fail from file:// (no CORS for null origin) and can
+// fail from localhost too if a browser extension intercepts cross-origin
+// requests to google.com.  The proxy keeps the browser talking only to
+// the launcher.
+function proxiedFetchUrl(target) {
+  const isLocalhost = location.protocol === 'http:'
+    && (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  if (isLocalhost) {
+    return `/proxy?url=${encodeURIComponent(target)}`;
+  }
+  return target;
+}
+
+async function refreshFromSheet() {
+  const url = document.getElementById('sheetUrl').value.trim();
+  saveSheetUrl();
+  const status = document.getElementById('sheetStatus');
+  if (!url) {
+    status.textContent = 'Paste a CSV URL above first.';
+    sheetMode = false;
+    renderTechs();
+    return;
+  }
+  status.textContent = 'Fetching ...';
+  try {
+    const resp = await fetch(proxiedFetchUrl(url), {cache: 'no-store'});
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => '');
+      throw new Error(`HTTP ${resp.status}${detail ? ' — ' + detail.slice(0, 200) : ''}`);
+    }
+    const csv = await resp.text();
+    const parsed = parseCsv(csv);
+    if (!parsed.length) {
+      status.textContent = 'Sheet returned no rows.';
+      return;
+    }
+    techs = parsed;
+    saveTechs();
+    sheetMode = true;
+    status.textContent = `Loaded ${parsed.length} techs from Sheet.`;
+    renderTechs();
+  } catch (err) {
+    status.textContent = `Fetch failed: ${err.message}. Check that the Sheet is Published to Web as CSV.`;
+    console.error(err);
+  }
+}
+
+function ingestPastedCsv() {
+  const csv = document.getElementById('csvPaste').value;
+  const status = document.getElementById('sheetStatus');
+  if (!csv.trim()) {
+    status.textContent = 'Paste CSV content into the box first.';
+    return;
+  }
+  const parsed = parseCsv(csv);
+  if (!parsed.length) {
+    status.textContent = 'No usable rows found. Header must include "Canonical Name", "Role", "Aliases".';
+    return;
+  }
+  techs = parsed;
+  saveTechs();
+  sheetMode = true;
+  status.textContent = `Loaded ${parsed.length} techs from pasted CSV.`;
+  renderTechs();
+}
+
+function openSheet() {
+  // Prefer the explicit Editor URL if Tom pasted one.
+  const explicit = document.getElementById('editorUrl').value.trim();
+  if (explicit) {
+    window.open(explicit, '_blank');
+    return;
+  }
+  // Try to derive an editor URL from the CSV URL.  Only works for raw editor-
+  // style URLs (/spreadsheets/d/{ID}/...), NOT Publish-to-Web URLs
+  // (/spreadsheets/d/e/{PUB_ID}/pub?...) — those use a different ID space.
+  const csv = document.getElementById('sheetUrl').value.trim();
+  const editorIdMatch = csv.match(/\/spreadsheets\/d\/(?!e\/)([^\/?#]+)/);
+  if (editorIdMatch) {
+    window.open(`https://docs.google.com/spreadsheets/d/${editorIdMatch[1]}/edit`, '_blank');
+    return;
+  }
+  // Pub URL or unrecognised — open the user's Google Sheets file list so
+  // they can pick it manually.  Better than navigating to a dead URL.
+  window.open('https://docs.google.com/spreadsheets/', '_blank');
+}
+
+// Minimal CSV parser — handles quoted fields and embedded commas.
+// Expected columns (first row is the header, case-insensitive):
+//   Canonical Name | Role | Aliases
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuote) {
+      if (c === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (c === '"') inQuote = false;
+      else field += c;
+    } else {
+      if (c === '"') inQuote = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.some(v => v.trim())) rows.push(row);
+        row = [];
+      } else field += c;
+    }
+  }
+  if (field || row.length) { row.push(field); if (row.some(v => v.trim())) rows.push(row); }
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const ixName    = header.findIndex(h => h.includes('name'));
+  const ixRole    = header.findIndex(h => h.includes('role'));
+  const ixAliases = header.findIndex(h => h.includes('alias'));
+  if (ixName < 0) return [];
+
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r[ixName] || '').trim();
+    if (!name) continue;
+    const role = ixRole >= 0 ? (r[ixRole] || '').trim().toLowerCase() : 'road';
+    const aliases = ixAliases >= 0
+      ? (r[ixAliases] || '').split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    out.push({name, role: role === 'battery' ? 'battery' : 'road', aliases});
+  }
+  return out;
+}
+
+// ── Send actions ────────────────────────────────────────────────────────────
+function openGmail(which) {
+  let body, subject;
+  if (which === 'bat')      { body = buildBatBody(); subject = `Battery Scores ${todayStr()}`; }
+  else if (which === 'svc') { body = buildSvcBody(); subject = `Other SVC Scores ${todayStr()}`; }
+  else                      { body = buildRosBody(); subject = `Tech Roster Update ${todayStr()}`; }
+  const url = 'https://mail.google.com/mail/?view=cm&fs=1'
+    + '&to='   + encodeURIComponent(RECIPIENTS.join(','))
+    + '&su='   + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(body);
+  window.open(url, '_blank');
+}
+
+function copyBody(which) {
+  let body;
+  if (which === 'bat')      body = buildBatBody();
+  else if (which === 'svc') body = buildSvcBody();
+  else                      body = buildRosBody();
+  navigator.clipboard.writeText(body).then(() => {
+    // Best-effort visual feedback on whichever button was just clicked
+    const btn = event && event.target;
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = orig, 1500);
+    }
+  });
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── Exit: stop the launcher's local HTTP server ────────────────────────────
+async function exitComposer() {
+  const btn = document.getElementById('exitBtn');
+  // Only works when served by the launcher — file:// has no server to shut down.
+  const isLocalhost = location.protocol === 'http:'
+    && (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  if (!isLocalhost) {
+    alert('No local server to stop — this composer was opened directly as a file. Close this browser tab to exit.');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Stopping ...'; }
+  try {
+    await fetch('/shutdown', {cache: 'no-store'});
+  } catch (_) {
+    // Server may close the connection before responding — that's fine.
+  }
+  // Attempt to close the tab/window.  Reliable when the launcher opened
+  // us via Chrome/Edge --app mode (which it prefers).  May be blocked in
+  // a normal browser tab; the goodbye banner is the visible fallback.
+  window.close();
+  document.body.innerHTML =
+    '<div class="goodbye">'
+    + '<h2>Server stopped.</h2>'
+    + '<p>The Scores Composer’s local server has shut down and the terminal '
+    + 'window has closed.  You can close this browser tab now (Ctrl+W).</p>'
+    + '</div>';
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+(function init() {
+  loadState();
+  document.getElementById('sheetUrl').value = sheetUrl;
+  // If we already have a Sheet URL, attempt a refresh on load so the techs list
+  // is current.  Failure falls back to whatever's in localStorage.
+  if (sheetUrl) {
+    refreshFromSheet();
+  } else {
+    renderBat();
+  }
+})();
+</script>
+</body>
+</html>

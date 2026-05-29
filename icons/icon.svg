@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#16213e"/>
+  <rect x="24" y="24" width="464" height="464" fill="none" stroke="#c1121f" stroke-width="20"/>
+  <text x="256" y="280" text-anchor="middle" font-family="Segoe UI, Tahoma, sans-serif" font-size="180" font-weight="700" fill="#fff">PAL</text>
+  <text x="256" y="380" text-anchor="middle" font-family="Segoe UI, Tahoma, sans-serif" font-size="56" font-weight="600" fill="#c1121f" letter-spacing="3">SCHEDULE</text>
+</svg>
