@@ -1,3 +1,3 @@
 @echo off
-:: Launch the PAL Tech Composer (GitHub Pages PWA)
-start "" "https://tomwilliams291.github.io/pal-tech-composer/"
+:: Launch the PAL Tech Composer (Cloudflare-hosted PWA)
+start "" "https://tech.palnnj-tools.com/"
