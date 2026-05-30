@@ -1,11 +1,11 @@
-// PAL Tech Roster & Scores Composer - service worker.
+// PAL Tech Composer - service worker.
 //
 // Caches the app shell so opening the bookmark with zero network shows
 // the UI immediately.  Network-only for everything else (Google Sheets
 // CSV, Gmail compose URL).  Bump CACHE_NAME any time the app shell
 // asset list or any cached asset's content changes.
 
-const CACHE_NAME = 'pal-scores-composer-shell-v1';
+const CACHE_NAME = 'pal-tech-composer-shell-v2';
 const APP_SHELL = [
   './',
   './index.html',

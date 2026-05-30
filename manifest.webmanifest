@@ -1,6 +1,6 @@
 {
-  "name": "PAL Tech Roster & Scores Composer",
-  "short_name": "PAL Scores",
+  "name": "PAL Tech Composer",
+  "short_name": "PAL Tech",
   "description": "Pop-A-Lock of Northern NJ - tech roster + battery/other-SVC scores composer",
   "start_url": "./",
   "scope": "./",

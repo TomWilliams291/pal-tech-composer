@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PAL Tech Roster &amp; Scores Composer V2.0</title>
+<title>PAL Tech Composer V2.0</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="icon" sizes="any" href="favicon.ico">
@@ -62,7 +62,7 @@ textarea:focus{outline:none;border-color:#c1121f}
 <body>
 <div class="hdr">
   <div style="flex:1">
-    <h1>PAL Tech Roster &amp; Scores Composer V2.0</h1>
+    <h1>PAL Tech Composer V2.0</h1>
     <p>Pop-A-Lock of Northern NJ &mdash; roster + battery / other-SVC scores</p>
   </div>
   <div style="font-size:11px;color:#7a8a9a;text-align:right" id="rosterBanner">Roster: not loaded</div>
@@ -167,7 +167,7 @@ textarea:focus{outline:none;border-color:#c1121f}
       <button class="cpybtn" style="width:auto;margin:0;padding:6px 14px" onclick="openEditorUrl()">Edit in Google Sheets</button>
     </div>
     <div class="hint" id="sheetStatus" style="margin-top:8px;color:#7a8a9a">Roster not loaded yet.</div>
-    <div class="hint" style="margin-top:10px">Both the Schedule Composer and this Scores Composer read the same Sheet so tech names stay consistent. The CSV URL comes from File &rarr; Share &rarr; Publish to web &rarr; CSV. The Editor URL is whatever's in your address bar while editing the sheet. URLs are saved in this browser's localStorage. Sheet columns: <b>Canonical Name, Role, Aliases</b> (role = rs / battery_tech / battery_installer).</div>
+    <div class="hint" style="margin-top:10px">Both the Schedule Composer and this Tech Composer read the same Sheet so tech names stay consistent. The CSV URL comes from File &rarr; Share &rarr; Publish to web &rarr; CSV. The Editor URL is whatever's in your address bar while editing the sheet. URLs are saved in this browser's localStorage. Sheet columns: <b>Canonical Name, Role, Aliases</b> (role = rs / battery_tech / battery_installer).</div>
     <div style="margin-top:10px">
       <div class="hint" style="margin-bottom:4px">Offline / fetch-blocked fallback &mdash; paste raw CSV:</div>
       <textarea id="csvPaste" placeholder="Canonical Name,Role,Aliases&#10;Aleidy Ortiz,battery_tech,&quot;Aleidy, Al&quot;&#10;Niko Robinson,battery_installer,Niko&#10;..."></textarea>

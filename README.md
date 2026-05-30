@@ -1,8 +1,9 @@
-# PAL Tech Roster & Scores Composer
+# PAL Tech Composer
 
 Hosted browser-based composer for Pop-A-Lock of Northern NJ's tech roster and
-battery / other-SVC scores. Sends the three emails the AI Navigator monitor
-watches for:
+battery / other-SVC scores. (Renamed from "PAL Tech Roster & Scores Composer"
+in v2.1 — same three tabs, same features, shorter name.)  Sends the three
+emails the AI Navigator monitor watches for:
 
 - **Battery Scores** (`Name: 1-5`)
 - **Other SVC Scores** (`Name: 1-3`)

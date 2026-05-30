@@ -1,3 +1,3 @@
 @echo off
-:: Launch the PAL Tech Roster & Scores Composer (GitHub Pages PWA)
+:: Launch the PAL Tech Composer (GitHub Pages PWA)
 start "" "https://tomwilliams291.github.io/pal-scores-composer/"
