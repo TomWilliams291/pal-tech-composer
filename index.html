@@ -132,7 +132,7 @@ textarea:focus{outline:none;border-color:#c1121f}
     <div class="ct">Canonical Techs &mdash; <span id="techCount">0</span> total</div>
     <div id="techsList"></div>
     <button class="addrow" onclick="addTechRow()" id="addTechBtn">+ Add tech</button>
-    <div class="hint" style="margin-top:8px">Role <b>battery_tech</b> / <b>battery_installer</b> &rarr; Battery Scores tab. Role <b>rs</b> &rarr; Other SVC Scores tab. Aliases are alternate spellings the monitor accepts when matching schedule-email names to this canonical name (e.g. <i>Mike T, M Tomaso</i>). Email is the tech's address for alert delivery (e.g. tech-missing-GPS) &mdash; leave blank when unknown.</div>
+    <div class="hint" style="margin-top:8px">Role <b>battery_tech</b> / <b>battery_installer</b> &rarr; Battery Scores tab. Role <b>rs</b> &rarr; Other SVC Scores tab. Aliases are alternate spellings the monitor accepts when matching schedule-email names to this canonical name (e.g. <i>Mike T, M Tomaso</i>). Email is the tech's address for alert delivery (e.g. tech-missing-GPS); add it as an <b>Email</b> column in the Sheet &mdash; leave blank when unknown.</div>
     <div class="hint warn" style="margin-top:8px">The roster normally comes from the Google Sheet (Settings tab) and is read-only here. Edit the Sheet, click Refresh, then send the Roster Update. Manual rows are only for when no Sheet is configured.</div>
   </div>
 </div>
@@ -170,10 +170,10 @@ textarea:focus{outline:none;border-color:#c1121f}
       <button class="cpybtn" style="width:auto;margin:0;padding:6px 14px" onclick="openEditorUrl()">Edit in Google Sheets</button>
     </div>
     <div class="hint" id="sheetStatus" style="margin-top:8px;color:#7a8a9a">Roster not loaded yet.</div>
-    <div class="hint" style="margin-top:10px">Both the Schedule Composer and this Tech Composer read the same Sheet so tech names stay consistent. The CSV URL comes from File &rarr; Share &rarr; Publish to web &rarr; CSV. The Editor URL is whatever's in your address bar while editing the sheet. URLs are saved in this browser's localStorage. Sheet columns: <b>Canonical Name, Role, Aliases</b> (role = rs / battery_tech / battery_installer).</div>
+    <div class="hint" style="margin-top:10px">Both the Schedule Composer and this Tech Composer read the same Sheet so tech names stay consistent. The CSV URL comes from File &rarr; Share &rarr; Publish to web &rarr; CSV. The Editor URL is whatever's in your address bar while editing the sheet. URLs are saved in this browser's localStorage. Sheet columns: <b>Canonical Name, Role, Aliases, Email</b> (role = rs / battery_tech / battery_installer; Email is optional, used for per-tech alert delivery).</div>
     <div style="margin-top:10px">
       <div class="hint" style="margin-bottom:4px">Offline / fetch-blocked fallback &mdash; paste raw CSV:</div>
-      <textarea id="csvPaste" placeholder="Canonical Name,Role,Aliases&#10;Aleidy Ortiz,battery_tech,&quot;Aleidy, Al&quot;&#10;Niko Robinson,battery_installer,Niko&#10;..."></textarea>
+      <textarea id="csvPaste" placeholder="Canonical Name,Role,Aliases,Email&#10;Aleidy Ortiz,battery_tech,&quot;Aleidy, Al&quot;,aleidy@example.com&#10;Niko Robinson,battery_installer,Niko,&#10;..."></textarea>
       <button class="minibtn" onclick="ingestPastedCsv()" style="margin-top:6px">Load from pasted CSV</button>
     </div>
   </div>
@@ -204,7 +204,6 @@ const KEY_SHEET  = 'pal_scores_sheet';
 const KEY_EDITOR = 'pal_scores_editor';
 const KEY_BAT    = 'pal_scores_battery';
 const KEY_SVC    = 'pal_scores_other';
-const KEY_EMAILS = 'pal_scores_emails';
 const KEY_ROSTER_CACHE = 'pal_scores_roster_cache';
 const KEY_OUTBOX = 'pal_scores_outbox';
 
@@ -218,10 +217,9 @@ const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTSX
 const BATTERY_ROLES = ['battery_tech', 'battery_installer'];
 const ROLE_OPTS = ['rs', 'battery_tech', 'battery_installer'];
 
-let techs = [];          // [{name, role, aliases:[]}]
+let techs = [];          // [{name, role, aliases:[], email}]
 let batScores = {};      // {name: digit}
 let svcScores = {};      // {name: digit}
-let emails    = {};      // {canonical_name: 'tech@example.com'} -- per-tech alert addresses
 let sheetUrl  = '';
 let editorUrl = '';
 let sheetMode = false;   // true when techs came from the Sheet (read-only)
@@ -233,14 +231,12 @@ function loadState() {
   try { techs = JSON.parse(localStorage.getItem(KEY_TECHS) || '[]'); } catch { techs = []; }
   try { batScores = JSON.parse(localStorage.getItem(KEY_BAT) || '{}'); } catch { batScores = {}; }
   try { svcScores = JSON.parse(localStorage.getItem(KEY_SVC) || '{}'); } catch { svcScores = {}; }
-  try { emails    = JSON.parse(localStorage.getItem(KEY_EMAILS) || '{}'); } catch { emails    = {}; }
   sheetUrl  = localStorage.getItem(KEY_SHEET)  || DEFAULT_SHEET_URL;
   editorUrl = localStorage.getItem(KEY_EDITOR) || '';
 }
 function saveTechs()  { localStorage.setItem(KEY_TECHS, JSON.stringify(techs)); }
 function saveBat()    { localStorage.setItem(KEY_BAT,   JSON.stringify(batScores)); }
 function saveSvc()    { localStorage.setItem(KEY_SVC,   JSON.stringify(svcScores)); }
-function saveEmails() { localStorage.setItem(KEY_EMAILS, JSON.stringify(emails)); }
 function saveSheetUrl()  { sheetUrl  = document.getElementById('sheetUrl').value.trim();  localStorage.setItem(KEY_SHEET, sheetUrl); }
 function saveEditorUrl() { editorUrl = document.getElementById('editorUrl').value.trim(); localStorage.setItem(KEY_EDITOR, editorUrl); }
 
@@ -368,15 +364,14 @@ function renderTechs() {
         const row = document.createElement('div');
         row.className = 'tech-row';
         const aliases = (t.aliases || []).join(', ');
-        const curEmail = emails[t.name] || '';
-        // Name / role / aliases stay read-only (Sheet is source of truth).
-        // Email is always editable here because the Sheet doesn't carry it --
-        // it lives in localStorage until shipped via the Roster Update email.
+        const email = (t.email || '').trim();
+        // Sheet is the source of truth for every column including Email --
+        // edit the Sheet, click Refresh, then send the Roster Update.
         row.innerHTML =
           `<div class="nm" style="flex:1.2">${escapeHtml(t.name)}</div>` +
           `<div class="nm" style="flex:0 0 130px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
           `<div class="nm" style="flex:1.4;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>` +
-          `<input type="email" placeholder="tech@example.com" value="${escapeAttr(curEmail)}" data-name="${escapeAttr(t.name)}" oninput="onEmailInput(this)" style="flex:1.5">`;
+          `<div class="nm" style="flex:1.5;color:#7a8a9a">${escapeHtml(email) || '<span style="color:#3a4a5a">(no email)</span>'}</div>`;
         list.appendChild(row);
       });
     }
@@ -396,24 +391,13 @@ function buildEditableRow(t, i) {
   const row = document.createElement('div');
   row.className = 'tech-row';
   const opts = ROLE_OPTS.map(r => `<option value="${r}"${t.role===r?' selected':''}>${r}</option>`).join('');
-  const curEmail = emails[t.name] || '';
   row.innerHTML =
     `<input type="text" value="${escapeAttr(t.name)}" placeholder="Canonical name" oninput="editTech(${i},'name',this.value)">` +
     `<select onchange="editTech(${i},'role',this.value)">${opts}</select>` +
     `<input type="text" value="${escapeAttr((t.aliases||[]).join(', '))}" placeholder="alias1, alias2" oninput="editTech(${i},'aliases',this.value)">` +
-    `<input type="email" value="${escapeAttr(curEmail)}" placeholder="tech@example.com" data-name="${escapeAttr(t.name)}" oninput="onEmailInput(this)">` +
+    `<input type="email" value="${escapeAttr(t.email || '')}" placeholder="tech@example.com" oninput="editTech(${i},'email',this.value)">` +
     `<button class="rm" onclick="removeTech(${i})" title="Remove">&times;</button>`;
   return row;
-}
-
-function onEmailInput(input) {
-  const name = input.dataset.name;
-  if (!name) return;
-  const val = (input.value || '').trim();
-  if (val) emails[name] = val;
-  else delete emails[name];
-  saveEmails();
-  updateRosPreview();
 }
 
 function addTechRow() {
@@ -425,22 +409,8 @@ function addTechRow() {
 }
 function removeTech(i) { techs.splice(i, 1); saveTechs(); renderTechs(); }
 function editTech(i, field, value) {
-  if (field === 'aliases') {
-    techs[i].aliases = value.split(',').map(s => s.trim()).filter(Boolean);
-  } else if (field === 'name') {
-    // Migrate the email key when a manual-mode tech is renamed, so the
-    // email Tom typed doesn't silently orphan and then disappear on the
-    // next render (the row reads emails[t.name]).
-    const oldName = techs[i].name;
-    techs[i].name = value;
-    if (oldName && oldName !== value && emails[oldName] != null) {
-      emails[value] = emails[oldName];
-      delete emails[oldName];
-      saveEmails();
-    }
-  } else {
-    techs[i][field] = value;
-  }
+  if (field === 'aliases') techs[i].aliases = value.split(',').map(s => s.trim()).filter(Boolean);
+  else techs[i][field] = value;
   saveTechs();
   document.getElementById('techCount').textContent = techs.length;
   updateRosPreview();
@@ -453,7 +423,7 @@ function buildRosBody() {
   for (const t of usable) {
     const role = (t.role || 'rs').toLowerCase();
     const aliases = (t.aliases || []).join(', ');
-    const email = (emails[t.name] || '').trim();
+    const email = (t.email || '').trim();
     // Format: "Name | role" with optional " | aliases" and optional " | email"
     // tails.  The aliases slot is held by an empty string when email is set
     // but aliases aren't, so the parser keeps the column positions aligned.
@@ -593,18 +563,9 @@ function parseCsv(text) {
     const aliases = ixAliases >= 0
       ? (r[ixAliases] || '').split(',').map(s => s.trim()).filter(Boolean)
       : [];
-    // If the Sheet grows an Email column later, treat it as authoritative
-    // for that canonical name (overrides whatever's in localStorage).  When
-    // no Email column is present, the localStorage value is left alone so
-    // Tom doesn't lose addresses he typed into the UI.
-    if (ixEmail >= 0) {
-      const e = (r[ixEmail] || '').trim();
-      if (e) emails[name] = e;
-      else delete emails[name];
-    }
-    out.push({name, role, aliases});
+    const email = ixEmail >= 0 ? (r[ixEmail] || '').trim() : '';
+    out.push({name, role, aliases, email});
   }
-  if (ixEmail >= 0) saveEmails();
   return out;
 }
 

@@ -7,7 +7,7 @@ emails the AI Navigator monitor watches for:
 
 - **Battery Scores** (`Name: 1-5`)
 - **Other SVC Scores** (`Name: 1-3`)
-- **Tech Roster Update** (`Name | role | aliases`)
+- **Tech Roster Update** (`Name | role | aliases | email` -- aliases / email optional)
 
 ## Usage
 
