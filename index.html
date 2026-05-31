@@ -31,9 +31,12 @@ input[type=number]{width:64px;text-align:center}
 .score-row .role-tag{font-size:10px;color:#7a8a9a;flex-shrink:0}
 .tech-row{display:flex;gap:6px;margin-bottom:5px;align-items:center}
 .tech-row input:nth-child(1){flex:1.2}
-.tech-row select{flex:0 0 140px;width:auto}
-.tech-row input:nth-child(3){flex:2}
+.tech-row select{flex:0 0 130px;width:auto}
+.tech-row input:nth-child(3){flex:1.4}
+.tech-row input:nth-child(4){flex:1.5}
 .tech-row .nm{font-size:13px}
+input[type=email]{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:6px 9px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s}
+input[type=email]:focus{outline:none;border-color:#c1121f}
 .rm{background:none;border:none;color:#3a5a7a;cursor:pointer;font-size:16px;padding:2px 5px;line-height:1;border-radius:3px;flex-shrink:0}
 .rm:hover{color:#c1121f}
 .addrow{background:none;border:1px dashed #1a3050;color:#4a6a8a;cursor:pointer;font-size:12px;padding:5px 10px;border-radius:4px;width:100%;text-align:left;margin-top:2px;font-family:inherit}
@@ -129,7 +132,7 @@ textarea:focus{outline:none;border-color:#c1121f}
     <div class="ct">Canonical Techs &mdash; <span id="techCount">0</span> total</div>
     <div id="techsList"></div>
     <button class="addrow" onclick="addTechRow()" id="addTechBtn">+ Add tech</button>
-    <div class="hint" style="margin-top:8px">Role <b>battery_tech</b> / <b>battery_installer</b> &rarr; Battery Scores tab. Role <b>rs</b> &rarr; Other SVC Scores tab. Aliases are alternate spellings the monitor accepts when matching schedule-email names to this canonical name (e.g. <i>Mike T, M Tomaso</i>).</div>
+    <div class="hint" style="margin-top:8px">Role <b>battery_tech</b> / <b>battery_installer</b> &rarr; Battery Scores tab. Role <b>rs</b> &rarr; Other SVC Scores tab. Aliases are alternate spellings the monitor accepts when matching schedule-email names to this canonical name (e.g. <i>Mike T, M Tomaso</i>). Email is the tech's address for alert delivery (e.g. tech-missing-GPS) &mdash; leave blank when unknown.</div>
     <div class="hint warn" style="margin-top:8px">The roster normally comes from the Google Sheet (Settings tab) and is read-only here. Edit the Sheet, click Refresh, then send the Roster Update. Manual rows are only for when no Sheet is configured.</div>
   </div>
 </div>
@@ -201,6 +204,7 @@ const KEY_SHEET  = 'pal_scores_sheet';
 const KEY_EDITOR = 'pal_scores_editor';
 const KEY_BAT    = 'pal_scores_battery';
 const KEY_SVC    = 'pal_scores_other';
+const KEY_EMAILS = 'pal_scores_emails';
 const KEY_ROSTER_CACHE = 'pal_scores_roster_cache';
 const KEY_OUTBOX = 'pal_scores_outbox';
 
@@ -217,6 +221,7 @@ const ROLE_OPTS = ['rs', 'battery_tech', 'battery_installer'];
 let techs = [];          // [{name, role, aliases:[]}]
 let batScores = {};      // {name: digit}
 let svcScores = {};      // {name: digit}
+let emails    = {};      // {canonical_name: 'tech@example.com'} -- per-tech alert addresses
 let sheetUrl  = '';
 let editorUrl = '';
 let sheetMode = false;   // true when techs came from the Sheet (read-only)
@@ -228,12 +233,14 @@ function loadState() {
   try { techs = JSON.parse(localStorage.getItem(KEY_TECHS) || '[]'); } catch { techs = []; }
   try { batScores = JSON.parse(localStorage.getItem(KEY_BAT) || '{}'); } catch { batScores = {}; }
   try { svcScores = JSON.parse(localStorage.getItem(KEY_SVC) || '{}'); } catch { svcScores = {}; }
+  try { emails    = JSON.parse(localStorage.getItem(KEY_EMAILS) || '{}'); } catch { emails    = {}; }
   sheetUrl  = localStorage.getItem(KEY_SHEET)  || DEFAULT_SHEET_URL;
   editorUrl = localStorage.getItem(KEY_EDITOR) || '';
 }
 function saveTechs()  { localStorage.setItem(KEY_TECHS, JSON.stringify(techs)); }
 function saveBat()    { localStorage.setItem(KEY_BAT,   JSON.stringify(batScores)); }
 function saveSvc()    { localStorage.setItem(KEY_SVC,   JSON.stringify(svcScores)); }
+function saveEmails() { localStorage.setItem(KEY_EMAILS, JSON.stringify(emails)); }
 function saveSheetUrl()  { sheetUrl  = document.getElementById('sheetUrl').value.trim();  localStorage.setItem(KEY_SHEET, sheetUrl); }
 function saveEditorUrl() { editorUrl = document.getElementById('editorUrl').value.trim(); localStorage.setItem(KEY_EDITOR, editorUrl); }
 
@@ -361,10 +368,15 @@ function renderTechs() {
         const row = document.createElement('div');
         row.className = 'tech-row';
         const aliases = (t.aliases || []).join(', ');
+        const curEmail = emails[t.name] || '';
+        // Name / role / aliases stay read-only (Sheet is source of truth).
+        // Email is always editable here because the Sheet doesn't carry it --
+        // it lives in localStorage until shipped via the Roster Update email.
         row.innerHTML =
           `<div class="nm" style="flex:1.2">${escapeHtml(t.name)}</div>` +
-          `<div class="nm" style="flex:0 0 140px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
-          `<div class="nm" style="flex:2;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>`;
+          `<div class="nm" style="flex:0 0 130px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
+          `<div class="nm" style="flex:1.4;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>` +
+          `<input type="email" placeholder="tech@example.com" value="${escapeAttr(curEmail)}" data-name="${escapeAttr(t.name)}" oninput="onEmailInput(this)" style="flex:1.5">`;
         list.appendChild(row);
       });
     }
@@ -384,12 +396,24 @@ function buildEditableRow(t, i) {
   const row = document.createElement('div');
   row.className = 'tech-row';
   const opts = ROLE_OPTS.map(r => `<option value="${r}"${t.role===r?' selected':''}>${r}</option>`).join('');
+  const curEmail = emails[t.name] || '';
   row.innerHTML =
     `<input type="text" value="${escapeAttr(t.name)}" placeholder="Canonical name" oninput="editTech(${i},'name',this.value)">` +
     `<select onchange="editTech(${i},'role',this.value)">${opts}</select>` +
     `<input type="text" value="${escapeAttr((t.aliases||[]).join(', '))}" placeholder="alias1, alias2" oninput="editTech(${i},'aliases',this.value)">` +
+    `<input type="email" value="${escapeAttr(curEmail)}" placeholder="tech@example.com" data-name="${escapeAttr(t.name)}" oninput="onEmailInput(this)">` +
     `<button class="rm" onclick="removeTech(${i})" title="Remove">&times;</button>`;
   return row;
+}
+
+function onEmailInput(input) {
+  const name = input.dataset.name;
+  if (!name) return;
+  const val = (input.value || '').trim();
+  if (val) emails[name] = val;
+  else delete emails[name];
+  saveEmails();
+  updateRosPreview();
 }
 
 function addTechRow() {
@@ -401,8 +425,22 @@ function addTechRow() {
 }
 function removeTech(i) { techs.splice(i, 1); saveTechs(); renderTechs(); }
 function editTech(i, field, value) {
-  if (field === 'aliases') techs[i].aliases = value.split(',').map(s => s.trim()).filter(Boolean);
-  else techs[i][field] = value;
+  if (field === 'aliases') {
+    techs[i].aliases = value.split(',').map(s => s.trim()).filter(Boolean);
+  } else if (field === 'name') {
+    // Migrate the email key when a manual-mode tech is renamed, so the
+    // email Tom typed doesn't silently orphan and then disappear on the
+    // next render (the row reads emails[t.name]).
+    const oldName = techs[i].name;
+    techs[i].name = value;
+    if (oldName && oldName !== value && emails[oldName] != null) {
+      emails[value] = emails[oldName];
+      delete emails[oldName];
+      saveEmails();
+    }
+  } else {
+    techs[i][field] = value;
+  }
   saveTechs();
   document.getElementById('techCount').textContent = techs.length;
   updateRosPreview();
@@ -415,7 +453,17 @@ function buildRosBody() {
   for (const t of usable) {
     const role = (t.role || 'rs').toLowerCase();
     const aliases = (t.aliases || []).join(', ');
-    lines.push(aliases ? `${t.name} | ${role} | ${aliases}` : `${t.name} | ${role}`);
+    const email = (emails[t.name] || '').trim();
+    // Format: "Name | role" with optional " | aliases" and optional " | email"
+    // tails.  The aliases slot is held by an empty string when email is set
+    // but aliases aren't, so the parser keeps the column positions aligned.
+    if (email) {
+      lines.push(`${t.name} | ${role} | ${aliases} | ${email}`);
+    } else if (aliases) {
+      lines.push(`${t.name} | ${role} | ${aliases}`);
+    } else {
+      lines.push(`${t.name} | ${role}`);
+    }
   }
   return lines.join('\n');
 }
@@ -533,6 +581,7 @@ function parseCsv(text) {
   const ixName    = header.findIndex(h => h.includes('name'));
   const ixRole    = header.findIndex(h => h.includes('role'));
   const ixAliases = header.findIndex(h => h.includes('alias'));
+  const ixEmail   = header.findIndex(h => h.includes('email'));
   if (ixName < 0) return [];
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -544,8 +593,18 @@ function parseCsv(text) {
     const aliases = ixAliases >= 0
       ? (r[ixAliases] || '').split(',').map(s => s.trim()).filter(Boolean)
       : [];
+    // If the Sheet grows an Email column later, treat it as authoritative
+    // for that canonical name (overrides whatever's in localStorage).  When
+    // no Email column is present, the localStorage value is left alone so
+    // Tom doesn't lose addresses he typed into the UI.
+    if (ixEmail >= 0) {
+      const e = (r[ixEmail] || '').trim();
+      if (e) emails[name] = e;
+      else delete emails[name];
+    }
     out.push({name, role, aliases});
   }
+  if (ixEmail >= 0) saveEmails();
   return out;
 }
 
