@@ -264,6 +264,28 @@ function todayStr() {
 
 function isBatteryRole(role) { return BATTERY_ROLES.includes((role || '').toLowerCase()); }
 
+// Drop batScores / svcScores entries that no longer match the current roster:
+// the tech was removed from the Sheet, or their role changed (battery -> rs or
+// vice versa).  Without this the email body keeps shipping the stale name --
+// the input row stops showing because renderBat/renderSvc filter on the live
+// techs array, but buildBatBody/buildSvcBody iterate Object.keys(scores),
+// which only ever drops keys when an input is cleared.  Call after any roster
+// load (refresh, paste, init).
+function pruneScoresToRoster() {
+  if (!Array.isArray(techs) || !techs.length) return 0;
+  const batNames = new Set(techs.filter(t => t.name && isBatteryRole(t.role)).map(t => t.name));
+  const svcNames = new Set(techs.filter(t => t.name && !isBatteryRole(t.role)).map(t => t.name));
+  let dropped = 0;
+  for (const k of Object.keys(batScores)) {
+    if (!batNames.has(k)) { delete batScores[k]; dropped++; }
+  }
+  for (const k of Object.keys(svcScores)) {
+    if (!svcNames.has(k)) { delete svcScores[k]; dropped++; }
+  }
+  if (dropped) { saveBat(); saveSvc(); }
+  return dropped;
+}
+
 // ── Battery Scores tab ────────────────────────────────────────────────────────
 function renderBat() {
   const list = document.getElementById('batList');
@@ -479,6 +501,7 @@ async function refreshFromSheet() {
     rosterFromCache = false;
     saveTechs();
     saveRosterCache(parsed, url, rosterFetchedAt);
+    pruneScoresToRoster();
     updateRosterBanner();
     renderActive();
     status.textContent = `Loaded ${techs.length} techs from Sheet at ${new Date().toLocaleTimeString()}.`;
@@ -487,6 +510,7 @@ async function refreshFromSheet() {
     if (cached && cached.source_url === url) {
       techs = cached.roster; sheetMode = true;
       rosterFetchedAt = cached.fetched_at; rosterFromCache = true;
+      pruneScoresToRoster();
       updateRosterBanner(); renderActive();
       status.textContent = `Fetch failed (${err.message}). Using cached roster from ${relativeTime(cached.fetched_at)}.`;
     } else {
@@ -503,7 +527,7 @@ function ingestPastedCsv() {
   const parsed = parseCsv(csv);
   if (!parsed.length) { status.textContent = 'No usable rows. Header must include Canonical Name, Role, Aliases.'; return; }
   techs = parsed; sheetMode = true; rosterFromCache = false; rosterFetchedAt = new Date().toISOString();
-  saveTechs(); updateRosterBanner(); renderActive();
+  saveTechs(); pruneScoresToRoster(); updateRosterBanner(); renderActive();
   status.textContent = `Loaded ${parsed.length} techs from pasted CSV.`;
 }
 
@@ -745,6 +769,11 @@ if ('serviceWorker' in navigator) {
     techs = cached.roster; sheetMode = true;
     rosterFetchedAt = cached.fetched_at; rosterFromCache = true;
   }
+  // Prune any localStorage scores whose tech is no longer in the roster --
+  // catches a closed-browser scenario where the Sheet changed but the user
+  // hasn't hit Refresh yet, so the email body shows the latest cached state
+  // instead of last week's.
+  pruneScoresToRoster();
   updateRosterBanner();
   updateOutboxTab();
   renderBat();
