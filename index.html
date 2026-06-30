@@ -531,28 +531,18 @@ function ingestPastedCsv() {
   status.textContent = `Loaded ${parsed.length} techs from pasted CSV.`;
 }
 
-// The roster Sheet is owned by the AutoNav ops account.  A bare docs.google.com
-// link opens under the browser's DEFAULT Google account (usually a navigator's
-// personal Gmail), which isn't shared on the Sheet -> "You need access".
-// Pinning authuser= forces Google to open it as the owning account instead.
-const AUTONAV_ACCOUNT = 'palautonav@gmail.com';
-function withAuthUser(url) {
-  if (!url) return url;
-  if (/[?&]authuser=/.test(url)) return url;   // caller already pinned an account
-  const hash = url.indexOf('#');
-  const base = hash >= 0 ? url.slice(0, hash) : url;
-  const frag = hash >= 0 ? url.slice(hash)    : '';
-  const sep  = base.indexOf('?') >= 0 ? '&' : '?';
-  return base + sep + 'authuser=' + encodeURIComponent(AUTONAV_ACCOUNT) + frag;
-}
-
+// Access model: the Sheet is shared (Editor) directly with each navigator's
+// own Google account, so a bare docs.google.com link opens under the browser's
+// default account and just works.  No authuser pin -- pinning the owning
+// account would force a shared sign-in, which we deliberately avoid (clean
+// offboarding = remove that person's share, no ops-password rotation).
 function openEditorUrl() {
   const explicit = document.getElementById('editorUrl').value.trim();
-  if (explicit) { window.open(withAuthUser(explicit), '_blank'); return; }
+  if (explicit) { window.open(explicit, '_blank'); return; }
   const csv = document.getElementById('sheetUrl').value.trim();
   const m = csv.match(/\/spreadsheets\/d\/(?!e\/)([^\/?#]+)/);
-  if (m) { window.open(withAuthUser(`https://docs.google.com/spreadsheets/d/${m[1]}/edit`), '_blank'); return; }
-  window.open(withAuthUser('https://docs.google.com/spreadsheets/'), '_blank');
+  if (m) { window.open(`https://docs.google.com/spreadsheets/d/${m[1]}/edit`, '_blank'); return; }
+  window.open('https://docs.google.com/spreadsheets/', '_blank');
 }
 
 // Re-render whichever tab is currently visible after the roster changes.
