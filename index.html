@@ -144,7 +144,7 @@ textarea:focus{outline:none;border-color:#c1121f}
     <div id="rosPvBody" class="pvbody"></div>
     <button class="sendbtn" onclick="openGmail('ros')">&#9993; Send Roster Update</button>
     <button class="cpybtn" onclick="copyBody('ros',this)">Copy email body</button>
-    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + roles + aliases to the monitor (techs.json). techs.json is the source of truth for ROLE &mdash; send this after you edit the Sheet.</div>
+    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + roles + aliases + phone to the monitor (techs.json). techs.json is the source of truth for ROLE and phone (used by the wake-up escalation ladder) &mdash; send this after you edit the Sheet. A tech with Role <b>Director</b> is the top escalation contact.</div>
   </div>
 </div>
 </div>
@@ -387,13 +387,15 @@ function renderTechs() {
         row.className = 'tech-row';
         const aliases = (t.aliases || []).join(', ');
         const email = (t.email || '').trim();
-        // Sheet is the source of truth for every column including Email --
-        // edit the Sheet, click Refresh, then send the Roster Update.
+        const phone = (t.phone || '').trim();
+        // Sheet is the source of truth for every column including Email and
+        // Phone -- edit the Sheet, click Refresh, then send the Roster Update.
         row.innerHTML =
           `<div class="nm" style="flex:1.2">${escapeHtml(t.name)}</div>` +
           `<div class="nm" style="flex:0 0 130px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
           `<div class="nm" style="flex:1.4;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>` +
-          `<div class="nm" style="flex:1.5;color:#7a8a9a">${escapeHtml(email) || '<span style="color:#3a4a5a">(no email)</span>'}</div>`;
+          `<div class="nm" style="flex:1.5;color:#7a8a9a">${escapeHtml(email) || '<span style="color:#3a4a5a">(no email)</span>'}</div>` +
+          `<div class="nm" style="flex:0 0 120px;color:#7a8a9a">${escapeHtml(phone) || '<span style="color:#3a4a5a">(no phone)</span>'}</div>`;
         list.appendChild(row);
       });
     }
@@ -418,6 +420,7 @@ function buildEditableRow(t, i) {
     `<select onchange="editTech(${i},'role',this.value)">${opts}</select>` +
     `<input type="text" value="${escapeAttr((t.aliases||[]).join(', '))}" placeholder="alias1, alias2" oninput="editTech(${i},'aliases',this.value)">` +
     `<input type="email" value="${escapeAttr(t.email || '')}" placeholder="tech@example.com" oninput="editTech(${i},'email',this.value)">` +
+    `<input type="tel" value="${escapeAttr(t.phone || '')}" placeholder="201-555-0123" oninput="editTech(${i},'phone',this.value)">` +
     `<button class="rm" onclick="removeTech(${i})" title="Remove">&times;</button>`;
   return row;
 }
@@ -446,10 +449,14 @@ function buildRosBody() {
     const role = (t.role || 'rs').toLowerCase();
     const aliases = (t.aliases || []).join(', ');
     const email = (t.email || '').trim();
-    // Format: "Name | role" with optional " | aliases" and optional " | email"
-    // tails.  The aliases slot is held by an empty string when email is set
-    // but aliases aren't, so the parser keeps the column positions aligned.
-    if (email) {
+    const phone = (t.phone || '').trim();
+    // Format: "Name | role" with optional " | aliases", " | email", " | phone"
+    // tails.  Later slots are held by empty strings when an earlier one is
+    // blank so the parser keeps the column positions aligned (phone at index 2
+    // of the tail).
+    if (phone) {
+      lines.push(`${t.name} | ${role} | ${aliases} | ${email} | ${phone}`);
+    } else if (email) {
       lines.push(`${t.name} | ${role} | ${aliases} | ${email}`);
     } else if (aliases) {
       lines.push(`${t.name} | ${role} | ${aliases}`);
@@ -554,7 +561,7 @@ function renderActive() {
   updateBatPreview(); updateSvcPreview(); updateRosPreview();
 }
 
-// Minimal CSV parser. Columns: Canonical Name | Role | Aliases.
+// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Phone.
 function parseCsv(text) {
   const rows = []; let row = [], field = '', inQuote = false;
   for (let i = 0; i < text.length; i++) {
@@ -581,6 +588,7 @@ function parseCsv(text) {
   const ixRole    = header.findIndex(h => h.includes('role'));
   const ixAliases = header.findIndex(h => h.includes('alias'));
   const ixEmail   = header.findIndex(h => h.includes('email'));
+  const ixPhone   = header.findIndex(h => h.includes('phone'));
   if (ixName < 0) return [];
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -593,7 +601,8 @@ function parseCsv(text) {
       ? (r[ixAliases] || '').split(',').map(s => s.trim()).filter(Boolean)
       : [];
     const email = ixEmail >= 0 ? (r[ixEmail] || '').trim() : '';
-    out.push({name, role, aliases, email});
+    const phone = ixPhone >= 0 ? (r[ixPhone] || '').trim() : '';
+    out.push({name, role, aliases, email, phone});
   }
   return out;
 }
