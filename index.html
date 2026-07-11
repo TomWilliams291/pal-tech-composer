@@ -34,6 +34,7 @@ input[type=number]{width:64px;text-align:center}
 .tech-row select{flex:0 0 130px;width:auto}
 .tech-row input:nth-child(3){flex:1.4}
 .tech-row input:nth-child(4){flex:1.5}
+.tech-row input:nth-child(5),.tech-row input:nth-child(6){flex:0 0 120px}
 .tech-row .nm{font-size:13px}
 input[type=email]{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:6px 9px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s}
 input[type=email]:focus{outline:none;border-color:#c1121f}
@@ -144,7 +145,7 @@ textarea:focus{outline:none;border-color:#c1121f}
     <div id="rosPvBody" class="pvbody"></div>
     <button class="sendbtn" onclick="openGmail('ros')">&#9993; Send Roster Update</button>
     <button class="cpybtn" onclick="copyBody('ros',this)">Copy email body</button>
-    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + roles + aliases + phone to the monitor (techs.json). techs.json is the source of truth for ROLE and phone (used by the wake-up escalation ladder) &mdash; send this after you edit the Sheet. A tech with Role <b>Director</b> is the top escalation contact.</div>
+    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + roles + aliases + phone + backup phone to the monitor (techs.json). techs.json is the source of truth for ROLE and phone numbers (used by the wake-up escalation ladder) &mdash; send this after you edit the Sheet. Add a <b>Phone 2</b> column in the Sheet for a tech's backup / cell number; the ladder dials it right after the primary before escalating. A tech with Role <b>Director</b> is the top escalation contact.</div>
   </div>
 </div>
 </div>
@@ -388,14 +389,17 @@ function renderTechs() {
         const aliases = (t.aliases || []).join(', ');
         const email = (t.email || '').trim();
         const phone = (t.phone || '').trim();
-        // Sheet is the source of truth for every column including Email and
-        // Phone -- edit the Sheet, click Refresh, then send the Roster Update.
+        const phone2 = (t.phone2 || '').trim();
+        // Sheet is the source of truth for every column including Email, Phone
+        // and the backup Phone 2 -- edit the Sheet, click Refresh, then send the
+        // Roster Update.
         row.innerHTML =
           `<div class="nm" style="flex:1.2">${escapeHtml(t.name)}</div>` +
           `<div class="nm" style="flex:0 0 130px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
           `<div class="nm" style="flex:1.4;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>` +
           `<div class="nm" style="flex:1.5;color:#7a8a9a">${escapeHtml(email) || '<span style="color:#3a4a5a">(no email)</span>'}</div>` +
-          `<div class="nm" style="flex:0 0 120px;color:#7a8a9a">${escapeHtml(phone) || '<span style="color:#3a4a5a">(no phone)</span>'}</div>`;
+          `<div class="nm" style="flex:0 0 120px;color:#7a8a9a">${escapeHtml(phone) || '<span style="color:#3a4a5a">(no phone)</span>'}</div>` +
+          `<div class="nm" style="flex:0 0 120px;color:#7a8a9a">${escapeHtml(phone2) || '<span style="color:#3a4a5a">(no backup)</span>'}</div>`;
         list.appendChild(row);
       });
     }
@@ -421,6 +425,7 @@ function buildEditableRow(t, i) {
     `<input type="text" value="${escapeAttr((t.aliases||[]).join(', '))}" placeholder="alias1, alias2" oninput="editTech(${i},'aliases',this.value)">` +
     `<input type="email" value="${escapeAttr(t.email || '')}" placeholder="tech@example.com" oninput="editTech(${i},'email',this.value)">` +
     `<input type="tel" value="${escapeAttr(t.phone || '')}" placeholder="201-555-0123" oninput="editTech(${i},'phone',this.value)">` +
+    `<input type="tel" value="${escapeAttr(t.phone2 || '')}" placeholder="backup 201-555-0199" oninput="editTech(${i},'phone2',this.value)">` +
     `<button class="rm" onclick="removeTech(${i})" title="Remove">&times;</button>`;
   return row;
 }
@@ -450,11 +455,14 @@ function buildRosBody() {
     const aliases = (t.aliases || []).join(', ');
     const email = (t.email || '').trim();
     const phone = (t.phone || '').trim();
-    // Format: "Name | role" with optional " | aliases", " | email", " | phone"
-    // tails.  Later slots are held by empty strings when an earlier one is
-    // blank so the parser keeps the column positions aligned (phone at index 2
-    // of the tail).
-    if (phone) {
+    const phone2 = (t.phone2 || '').trim();
+    // Format: "Name | role" with optional " | aliases", " | email", " | phone",
+    // " | phone2" tails.  Later slots are held by empty strings when an earlier
+    // one is blank so the parser keeps the column positions aligned (phone at
+    // tail index 2, backup phone2 at tail index 3).
+    if (phone2) {
+      lines.push(`${t.name} | ${role} | ${aliases} | ${email} | ${phone} | ${phone2}`);
+    } else if (phone) {
       lines.push(`${t.name} | ${role} | ${aliases} | ${email} | ${phone}`);
     } else if (email) {
       lines.push(`${t.name} | ${role} | ${aliases} | ${email}`);
@@ -561,7 +569,7 @@ function renderActive() {
   updateBatPreview(); updateSvcPreview(); updateRosPreview();
 }
 
-// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Phone.
+// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Phone | Phone 2.
 function parseCsv(text) {
   const rows = []; let row = [], field = '', inQuote = false;
   for (let i = 0; i < text.length; i++) {
@@ -588,7 +596,13 @@ function parseCsv(text) {
   const ixRole    = header.findIndex(h => h.includes('role'));
   const ixAliases = header.findIndex(h => h.includes('alias'));
   const ixEmail   = header.findIndex(h => h.includes('email'));
-  const ixPhone   = header.findIndex(h => h.includes('phone'));
+  // Two phone columns: "Phone" (primary) and "Phone 2" (backup / cell). Match the
+  // backup by a phone-ish header that also carries a 2/backup/cell/secondary
+  // marker; the primary is the first phone-ish header that ISN'T the backup.
+  const ixPhone2  = header.findIndex(h => h.includes('phone') &&
+                     (h.includes('2') || h.includes('backup') ||
+                      h.includes('cell') || h.includes('secondary')));
+  const ixPhone   = header.findIndex((h, i) => h.includes('phone') && i !== ixPhone2);
   if (ixName < 0) return [];
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -602,7 +616,8 @@ function parseCsv(text) {
       : [];
     const email = ixEmail >= 0 ? (r[ixEmail] || '').trim() : '';
     const phone = ixPhone >= 0 ? (r[ixPhone] || '').trim() : '';
-    out.push({name, role, aliases, email, phone});
+    const phone2 = ixPhone2 >= 0 ? (r[ixPhone2] || '').trim() : '';
+    out.push({name, role, aliases, email, phone, phone2});
   }
   return out;
 }
