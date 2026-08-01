@@ -216,7 +216,11 @@ const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTSX
 // Roles that are scored on the battery scale (1-5).  Everyone else (rs) is
 // scored on the Other-SVC scale (1-3).  Matches the router + NavReview.
 const BATTERY_ROLES = ['battery_tech', 'battery_installer'];
-const ROLE_OPTS = ['rs', 'battery_tech', 'battery_installer'];
+// commercial_locksmith / automotive_locksmith carry the locksmith SUBTYPE. Both
+// route as the umbrella "locksmith" role in the Monitor; the subtype drives the
+// locksmith branch's capability matrix and lets the schedule name a locksmith by
+// role only (identity resolves here from this canonical name + phone).
+const ROLE_OPTS = ['rs', 'battery_tech', 'battery_installer', 'commercial_locksmith', 'automotive_locksmith'];
 
 let techs = [];          // [{name, role, aliases:[], email}]
 let batScores = {};      // {name: digit}
@@ -629,6 +633,9 @@ function normalizeRole(role) {
     'battery': 'battery_tech', 'battery_tech': 'battery_tech',
     'battery_installer': 'battery_installer', 'installer': 'battery_installer',
     'locksmith': 'locksmith',
+    // Locksmith subtypes — accept the underscored token and friendly Sheet spellings.
+    'commercial_locksmith': 'commercial_locksmith', 'commercial locksmith': 'commercial_locksmith',
+    'automotive_locksmith': 'automotive_locksmith', 'automotive locksmith': 'automotive_locksmith',
   };
   return map[role] || (role || 'rs');
 }
