@@ -643,12 +643,19 @@ function parseCsv(text) {
                      (h.includes('2') || h.includes('backup') ||
                       h.includes('cell') || h.includes('secondary')));
   const ixPhone   = header.findIndex((h, i) => h.includes('phone') && i !== ixPhone2);
-  // Score columns. "Battery Score" is the battery-scale (1-5) column; any OTHER
-  // score-ish header is the Other-SVC scale (1-3) -- matches "Other SVC Score",
-  // "SVC Score", "Other Score". Neither collides with the name/role/alias/email/
-  // phone matchers above.
-  const ixBatScore = header.findIndex(h => h.includes('score') && h.includes('battery'));
-  const ixSvcScore = header.findIndex(h => h.includes('score') && !h.includes('battery'));
+  // Score columns, matched on header TEXT -- position and order are irrelevant.
+  // Battery scale (1-5): any score header naming battery ("Battery Score",
+  // "Batt Score").
+  const ixBatScore = header.findIndex(h => h.includes('score') && h.includes('batt'));
+  // Other-SVC scale (1-3): must name the scale explicitly ("Other SVC Score",
+  // "SVC Score", "Road Score").  Deliberately strict rather than "any score column
+  // that isn't battery": an unrelated column such as "Performance Score" would
+  // otherwise be silently adopted as the road-service score and feed wrong numbers
+  // into routing.  An unmatched header is simply ignored, which is safe -- those
+  // techs are omitted from the email body and scores_watcher preserves whatever
+  // score it already holds.
+  const ixSvcScore = header.findIndex(h => h.includes('score') && !h.includes('batt') &&
+                       (h.includes('svc') || h.includes('other') || h.includes('road')));
   if (ixName < 0) return [];
   const out = [];
   for (let i = 1; i < rows.length; i++) {

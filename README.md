@@ -44,6 +44,22 @@ Battery Score, Other SVC Score`. The two score columns are optional — with a
 Sheet that lacks them the composer falls back to the old per-browser entry
 behaviour, so adding them can be done at any time.
 
+**Columns are matched on header text, not position.** Order, column position,
+capitalisation and surrounding spaces are all irrelevant; only the header wording
+matters:
+
+- Battery scale (1–5): a header containing `score` **and** `batt` —
+  `Battery Score`, `Batt Score`.
+- Other-SVC scale (1–3): a header containing `score` **and** one of `svc`,
+  `other`, `road` — `Other SVC Score`, `SVC Score`, `Road Score`.
+
+The Other-SVC match is deliberately strict rather than "any score column that
+isn't battery", so that adding an unrelated column such as `Performance Score`
+can't silently hijack the road-service score. A header that matches neither rule
+is ignored, which is safe: those techs are left out of the email and the monitor
+keeps whatever score it already holds. If a whole column reads as blank in the
+app, check the header wording first.
+
 `techs.json` role vocabulary: `rs`, `battery_tech`, `battery_installer`.
 
 ## Architecture
