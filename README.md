@@ -72,15 +72,28 @@ V1.0 local Python launcher + `/proxy`.
 
 ## Deploying
 
-Served from GitHub Pages.
+Served from Cloudflare at **https://tech.palnnj-tools.com/** (Worker
+`pal-tech-composer`, static assets from this folder — see `wrangler.jsonc`).
+Cloudflare's Git integration watches
+`github.com/TomWilliams291/pal-tech-composer`, so:
 
-1. Push this folder's contents to a public repo's `main` branch.
-2. Repo **Settings → Pages**: source `Deploy from a branch`, branch `main`,
-   folder `/ (root)`.
-3. Distribute the published URL to navigators.
+**Pushing to `main` IS the deploy.** There is no manual step and no
+`wrangler deploy` to run — the Cloudflare project is wired to the repo in the
+dashboard, not by a workflow file in this repo. (There is no `.github/workflows`
+here; don't conclude from that that deploys are manual.)
+
+To verify a deploy landed, diff the live asset against the local one — a
+published change is byte-identical:
+
+```
+curl -sS https://tech.palnnj-tools.com/ | wc -c     # compare with: wc -c < index.html
+curl -sS https://tech.palnnj-tools.com/sw.js | grep CACHE_NAME
+```
 
 Bump `CACHE_NAME` in `sw.js` whenever a cached asset changes so clients pick up
-the new version.
+the new version. Because the service worker is cache-first on the app shell, the
+first open after a deploy still serves the old shell while the new worker
+installs; the second open gets the new one.
 
 ## Files
 
