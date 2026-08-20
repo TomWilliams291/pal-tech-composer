@@ -11,15 +11,38 @@ emails the AI Navigator monitor watches for:
 
 ## Usage
 
-Bookmark the deployed URL and open it. The roster (canonical names + roles +
-aliases) is fetched directly from the shared Google Sheet on open — edit the
-Sheet, and the composer reflects it on the next open or **Refresh from Sheet**
-(Settings tab). No local launcher needed.
+Bookmark the deployed URL and open it. **The Sheet is the source of truth for
+both the roster and the scores.** The composer fetches it on open, whenever the
+app becomes visible again, and on **Refresh from Sheet** (Settings tab). Edit the
+Sheet, then send. No local launcher needed.
 
 - **Battery Scores tab** — `battery_tech` and `battery_installer` techs.
 - **Other SVC Scores tab** — `rs` (road service) techs.
 - **Tech Roster tab** — review the roster and send a Roster Update so the
   monitor's `techs.json` (the source of truth for ROLE) stays current.
+
+### Why scores live in the Sheet
+
+Scores used to be typed into the composer and kept in each browser's
+`localStorage`. That made every navigator's copy an independent replica: the
+composer had no way to show what anyone else had set, and because a send emits
+*every* score the browser holds — not just the ones changed that session — each
+send replayed one person's private history over everyone else's newer values.
+Central state converged on whoever sent last rather than whoever knew last.
+
+Sourcing scores from the Sheet fixes this without changing the send logic: every
+composer now replays the *same* state, so a full-set send becomes self-healing
+instead of destructive. The score inputs are read-only in the app for the same
+reason the roster rows are — edit the Sheet, refresh, then send.
+
+A **blank** score cell means "no opinion": that tech is omitted from the email
+body, and `scores_watcher` leaves their existing score untouched. It does not
+erase anything.
+
+Sheet columns: `Canonical Name, Role, Aliases, Email, Phone, Phone 2,
+Battery Score, Other SVC Score`. The two score columns are optional — with a
+Sheet that lacks them the composer falls back to the old per-browser entry
+behaviour, so adding them can be done at any time.
 
 `techs.json` role vocabulary: `rs`, `battery_tech`, `battery_installer`.
 

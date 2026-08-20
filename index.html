@@ -26,6 +26,8 @@ input[type=text],input[type=number],input[type=url],select{background:#0d1b2a;bo
 input[type=text]:focus,input[type=number]:focus,input[type=url]:focus,select:focus{outline:none;border-color:#c1121f}
 input::placeholder{color:#3a4a5a}
 input[type=number]{width:64px;text-align:center}
+/* Sheet-owned scores: readable, clearly not editable here. */
+input[type=number]:disabled{background:#16213e;border-color:#1b2a4a;color:#b8c8d8;cursor:not-allowed}
 .score-row{display:flex;gap:8px;margin-bottom:5px;align-items:center}
 .score-row .nm{flex:1;font-size:13px;color:#e0e0e0;padding:5px 0}
 .score-row .role-tag{font-size:10px;color:#7a8a9a;flex-shrink:0}
@@ -85,7 +87,7 @@ textarea:focus{outline:none;border-color:#c1121f}
 <div class="form">
   <div class="card">
     <div class="ct">Battery Scores &mdash; 1 (best) to 5 (worst)</div>
-    <div class="hint" style="margin-bottom:10px">Battery techs and battery installers. Leave blank to keep the existing value. Unscored techs default to 5 in the router.</div>
+    <div class="hint" id="batHint" style="margin-bottom:10px">Battery techs and battery installers. Leave blank to keep the existing value. Unscored techs default to 5 in the router.</div>
     <div id="batList"></div>
   </div>
 </div>
@@ -108,7 +110,7 @@ textarea:focus{outline:none;border-color:#c1121f}
 <div class="form">
   <div class="card">
     <div class="ct">Other SVC Scores &mdash; 1 (best) to 3 (worst)</div>
-    <div class="hint" style="margin-bottom:10px">Road service techs. Leave blank to keep the existing value. Unscored techs default to 3 in the router.</div>
+    <div class="hint" id="svcHint" style="margin-bottom:10px">Road service techs. Leave blank to keep the existing value. Unscored techs default to 3 in the router.</div>
     <div id="svcList"></div>
   </div>
 </div>
@@ -230,6 +232,8 @@ let editorUrl = '';
 let sheetMode = false;   // true when techs came from the Sheet (read-only)
 let rosterFetchedAt = null;
 let rosterFromCache = false;
+let refreshInFlight = false;   // guards concurrent refreshFromSheet() calls
+let lastRefreshAt   = 0;       // epoch ms of the last completed refresh
 
 // ── State persistence ────────────────────────────────────────────────────────
 function loadState() {
@@ -292,8 +296,27 @@ function pruneScoresToRoster() {
 }
 
 // ── Battery Scores tab ────────────────────────────────────────────────────────
+// Hint text depends on where the scores came from.  When the Sheet owns them the
+// old "leave blank to keep the existing value" advice is actively misleading --
+// there is nothing to leave blank, the cell is the value.
+const HINT_BAT_LOCAL = 'Battery techs and battery installers. Leave blank to keep the existing value. Unscored techs default to 5 in the router.';
+const HINT_BAT_SHEET = 'Battery techs and battery installers. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. A blank cell keeps the tech’s existing score; unscored techs default to 5 in the router.';
+const HINT_SVC_LOCAL = 'Road service techs. Leave blank to keep the existing value. Unscored techs default to 3 in the router.';
+const HINT_SVC_SHEET = 'Road service techs. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. A blank cell keeps the tech’s existing score; unscored techs default to 3 in the router.';
+
+function scoreInputHtml(which, name, cur, max, fromSheet) {
+  if (fromSheet) {
+    return `<input type="number" value="${cur}" disabled ` +
+           `title="Scores are owned by the Google Sheet. Edit the Sheet, then Refresh.">`;
+  }
+  return `<input type="number" min="1" max="${max}" step="1" value="${cur}" ` +
+         `data-name="${escapeAttr(name)}" oninput="onScoreInput('${which}',this)">`;
+}
+
 function renderBat() {
   const list = document.getElementById('batList');
+  const fromSheet = rosterCarriesScores(techs);
+  document.getElementById('batHint').textContent = fromSheet ? HINT_BAT_SHEET : HINT_BAT_LOCAL;
   const batteryTechs = techs.filter(t => t.name && isBatteryRole(t.role));
   if (!batteryTechs.length) {
     list.innerHTML = '<div class="empty">No battery techs/installers yet &mdash; load the roster on the Settings tab or add some on the Tech Roster tab.</div>';
@@ -306,7 +329,7 @@ function renderBat() {
       row.innerHTML =
         `<div class="nm">${escapeHtml(t.name)}</div>` +
         `<span class="role-tag">${escapeHtml(t.role)}</span>` +
-        `<input type="number" min="1" max="5" step="1" value="${cur}" data-name="${escapeAttr(t.name)}" oninput="onScoreInput('bat',this)">`;
+        scoreInputHtml('bat', t.name, cur, 5, fromSheet);
       list.appendChild(row);
     });
   }
@@ -343,6 +366,8 @@ function updateBatPreview() {
 // ── Other SVC Scores tab ──────────────────────────────────────────────────────
 function renderSvc() {
   const list = document.getElementById('svcList');
+  const fromSheet = rosterCarriesScores(techs);
+  document.getElementById('svcHint').textContent = fromSheet ? HINT_SVC_SHEET : HINT_SVC_LOCAL;
   const roadTechs = techs.filter(t => t.name && !isBatteryRole(t.role));
   if (!roadTechs.length) {
     list.innerHTML = '<div class="empty">No road-service techs yet &mdash; load the roster on the Settings tab or add some on the Tech Roster tab.</div>';
@@ -355,7 +380,7 @@ function renderSvc() {
       row.innerHTML =
         `<div class="nm">${escapeHtml(t.name)}</div>` +
         `<span class="role-tag">${escapeHtml(t.role)}</span>` +
-        `<input type="number" min="1" max="3" step="1" value="${cur}" data-name="${escapeAttr(t.name)}" oninput="onScoreInput('svc',this)">`;
+        scoreInputHtml('svc', t.name, cur, 3, fromSheet);
       list.appendChild(row);
     });
   }
@@ -501,6 +526,7 @@ async function refreshFromSheet() {
     updateRosterBanner(); renderTechs();
     return;
   }
+  refreshInFlight = true;
   status.textContent = 'Fetching ...';
   try {
     const resp = await fetch(url, {cache: 'no-store'});
@@ -520,15 +546,18 @@ async function refreshFromSheet() {
     rosterFromCache = false;
     saveTechs();
     saveRosterCache(parsed, url, rosterFetchedAt);
+    const seeded = seedScoresFromRoster();
     pruneScoresToRoster();
     updateRosterBanner();
     renderActive();
-    status.textContent = `Loaded ${techs.length} techs from Sheet at ${new Date().toLocaleTimeString()}.`;
+    const scoreNote = seeded === null ? ' (no score columns in Sheet)' : ` + ${seeded} score(s)`;
+    status.textContent = `Loaded ${techs.length} techs${scoreNote} from Sheet at ${new Date().toLocaleTimeString()}.`;
   } catch (err) {
     const cached = loadRosterCache();
     if (cached && cached.source_url === url) {
       techs = cached.roster; sheetMode = true;
       rosterFetchedAt = cached.fetched_at; rosterFromCache = true;
+      seedScoresFromRoster();
       pruneScoresToRoster();
       updateRosterBanner(); renderActive();
       status.textContent = `Fetch failed (${err.message}). Using cached roster from ${relativeTime(cached.fetched_at)}.`;
@@ -536,6 +565,9 @@ async function refreshFromSheet() {
       status.textContent = `Fetch failed: ${err.message}. Check that the Sheet is Published to Web as CSV.`;
     }
     console.warn(err);
+  } finally {
+    refreshInFlight = false;
+    lastRefreshAt   = Date.now();
   }
 }
 
@@ -546,7 +578,7 @@ function ingestPastedCsv() {
   const parsed = parseCsv(csv);
   if (!parsed.length) { status.textContent = 'No usable rows. Header must include Canonical Name, Role, Aliases.'; return; }
   techs = parsed; sheetMode = true; rosterFromCache = false; rosterFetchedAt = new Date().toISOString();
-  saveTechs(); pruneScoresToRoster(); updateRosterBanner(); renderActive();
+  saveTechs(); seedScoresFromRoster(); pruneScoresToRoster(); updateRosterBanner(); renderActive();
   status.textContent = `Loaded ${parsed.length} techs from pasted CSV.`;
 }
 
@@ -573,7 +605,11 @@ function renderActive() {
   updateBatPreview(); updateSvcPreview(); updateRosPreview();
 }
 
-// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Phone | Phone 2.
+// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Phone |
+// Phone 2 | Battery Score | Other SVC Score.  The two score columns are optional:
+// when absent, bat_score / svc_score keys are left OFF the record entirely, which
+// is how rosterCarriesScores() tells "Sheet has no score columns yet" apart from
+// "Sheet has score columns and this cell is blank".
 function parseCsv(text) {
   const rows = []; let row = [], field = '', inQuote = false;
   for (let i = 0; i < text.length; i++) {
@@ -607,6 +643,12 @@ function parseCsv(text) {
                      (h.includes('2') || h.includes('backup') ||
                       h.includes('cell') || h.includes('secondary')));
   const ixPhone   = header.findIndex((h, i) => h.includes('phone') && i !== ixPhone2);
+  // Score columns. "Battery Score" is the battery-scale (1-5) column; any OTHER
+  // score-ish header is the Other-SVC scale (1-3) -- matches "Other SVC Score",
+  // "SVC Score", "Other Score". Neither collides with the name/role/alias/email/
+  // phone matchers above.
+  const ixBatScore = header.findIndex(h => h.includes('score') && h.includes('battery'));
+  const ixSvcScore = header.findIndex(h => h.includes('score') && !h.includes('battery'));
   if (ixName < 0) return [];
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -621,9 +663,53 @@ function parseCsv(text) {
     const email = ixEmail >= 0 ? (r[ixEmail] || '').trim() : '';
     const phone = ixPhone >= 0 ? (r[ixPhone] || '').trim() : '';
     const phone2 = ixPhone2 >= 0 ? (r[ixPhone2] || '').trim() : '';
-    out.push({name, role, aliases, email, phone, phone2});
+    const rec = {name, role, aliases, email, phone, phone2};
+    if (ixBatScore >= 0) rec.bat_score = (r[ixBatScore] || '').trim();
+    if (ixSvcScore >= 0) rec.svc_score = (r[ixSvcScore] || '').trim();
+    out.push(rec);
   }
   return out;
+}
+
+// True when the loaded roster came from a Sheet that HAS score column(s) -- i.e.
+// the Sheet is the source of truth for scores and the score inputs are read-only.
+// False for a legacy Sheet (no score columns) or a hand-built roster, where the
+// old per-browser entry behaviour still applies.
+function rosterCarriesScores(list) {
+  return Array.isArray(list) &&
+         list.some(t => t && (t.bat_score !== undefined || t.svc_score !== undefined));
+}
+
+// Replace the local score maps wholesale from the Sheet.
+//
+// Wholesale replacement is the entire point: a per-browser localStorage score map
+// is a divergent replica, and because buildBatBody()/buildSvcBody() emit EVERY key
+// they hold, each send replayed that browser's private history over everyone
+// else's newer values.  Re-deriving from the Sheet on every load means every
+// composer replays the SAME state, so the replay becomes self-healing instead of
+// destructive.
+//
+// A blank cell is deliberately omitted rather than stored: the name then never
+// appears in the email body, and scores_watcher leaves that tech's existing
+// score untouched.  Blank means "no opinion", not "erase".
+function seedScoresFromRoster() {
+  if (!rosterCarriesScores(techs)) return null;
+  const nextBat = {}, nextSvc = {};
+  let seeded = 0;
+  for (const t of techs) {
+    if (!t || !t.name) continue;
+    const battery = isBatteryRole(t.role);
+    const raw = battery ? t.bat_score : t.svc_score;
+    const max = battery ? 5 : 3;
+    const n = parseInt(String(raw == null ? '' : raw).trim(), 10);
+    if (!(n >= 1 && n <= max)) continue;
+    (battery ? nextBat : nextSvc)[t.name] = n;
+    seeded++;
+  }
+  batScores = nextBat;
+  svcScores = nextSvc;
+  saveBat(); saveSvc();
+  return seeded;
 }
 
 // Accept the current enum and legacy coarse values from the Sheet.
@@ -779,6 +865,38 @@ window.addEventListener('online',  () => {
 });
 window.addEventListener('offline', updateRosterBanner);
 
+// ── Auto-refresh on resume ────────────────────────────────────────────────────
+// init() already refreshes from the Sheet, but it only runs once per DOCUMENT
+// LOAD.  Installed as a PWA, or left open in a background tab, "opening" the
+// composer resumes the same document -- init never runs again, so the roster and
+// scores on screen are from whenever the app was first opened, possibly days
+// earlier.  That is why clicking "Refresh from Sheet" was in practice mandatory
+// before trusting anything on screen.
+//
+// Re-fetch whenever the app becomes visible again, throttled so that flicking
+// between tabs (or bouncing back from the Gmail compose window) doesn't hammer
+// Google.  refreshInFlight keeps a slow fetch from overlapping a second one.
+const REFRESH_MIN_INTERVAL_MS = 30000;
+
+function maybeRefreshFromSheet() {
+  if (refreshInFlight) return;
+  if (!navigator.onLine) return;
+  if (Date.now() - lastRefreshAt < REFRESH_MIN_INTERVAL_MS) return;
+  const el = document.getElementById('sheetUrl');
+  if (!el || !el.value.trim()) return;
+  refreshFromSheet();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') maybeRefreshFromSheet();
+});
+// A bfcache restore (mobile back/forward, or returning to a suspended PWA on
+// iOS) does not always fire visibilitychange -- pageshow.persisted catches it.
+window.addEventListener('pageshow', e => { if (e.persisted) maybeRefreshFromSheet(); });
+// Coming back online is also a resume: the init fetch may have failed outright
+// and left the app on cached data.
+window.addEventListener('online', maybeRefreshFromSheet);
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeAttr(s) { return escapeHtml(s); }
@@ -804,6 +922,10 @@ if ('serviceWorker' in navigator) {
   if (cached && cached.source_url === url && Array.isArray(cached.roster)) {
     techs = cached.roster; sheetMode = true;
     rosterFetchedAt = cached.fetched_at; rosterFromCache = true;
+    // Seed from the cached Sheet copy too, so an offline open shows Sheet scores
+    // rather than this browser's stale local map.  The live fetch below re-seeds
+    // from the network copy the moment it lands.
+    seedScoresFromRoster();
   }
   // Prune any localStorage scores whose tech is no longer in the roster --
   // catches a closed-browser scenario where the Sheet changed but the user
