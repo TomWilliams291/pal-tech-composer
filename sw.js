@@ -5,7 +5,7 @@
 // CSV, Gmail compose URL).  Bump CACHE_NAME any time the app shell
 // asset list or any cached asset's content changes.
 
-const CACHE_NAME = 'pal-tech-composer-shell-v11';
+const CACHE_NAME = 'pal-tech-composer-shell-v12';
 const APP_SHELL = [
   './',
   './index.html',

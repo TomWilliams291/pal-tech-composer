@@ -31,6 +31,12 @@ input[type=number]:disabled{background:#16213e;border-color:#1b2a4a;color:#b8c8d
 .score-row{display:flex;gap:8px;margin-bottom:5px;align-items:center}
 .score-row .nm{flex:1;font-size:13px;color:#e0e0e0;padding:5px 0}
 .score-row .role-tag{font-size:10px;color:#7a8a9a;flex-shrink:0}
+/* Per-row write-back status (saving / saved / failed).  Fixed width so the
+   inputs don't jump as the text changes. */
+.score-row .wb{font-size:10.5px;flex:0 0 118px;text-align:left;color:#3a5a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-row .wb.saving{color:#e8a020}
+.score-row .wb.saved{color:#2ea043}
+.score-row .wb.failed{color:#c1121f;cursor:pointer;text-decoration:underline dotted}
 .tech-row{display:flex;gap:6px;margin-bottom:5px;align-items:center}
 .tech-row input:nth-child(1){flex:1.2}
 .tech-row select{flex:0 0 130px;width:auto}
@@ -180,6 +186,23 @@ textarea:focus{outline:none;border-color:#c1121f}
       <button class="minibtn" onclick="ingestPastedCsv()" style="margin-top:6px">Load from pasted CSV</button>
     </div>
   </div>
+  <div class="card">
+    <div class="ct">Score write-back (saves scores typed here into the Sheet)</div>
+    <div class="row">
+      <span class="lbl">Web app URL</span>
+      <input type="url" id="writebackUrl" placeholder="https://script.google.com/macros/s/.../exec" oninput="saveWritebackUrl()">
+    </div>
+    <div class="row">
+      <span class="lbl">Token</span>
+      <input type="text" id="writebackToken" placeholder="(only if the script has PAL_TOKEN set)" oninput="saveWritebackToken()">
+    </div>
+    <div class="row" style="margin-top:6px;gap:8px">
+      <span class="lbl">&nbsp;</span>
+      <button class="cpybtn" style="width:auto;margin:0;padding:6px 14px" onclick="testWriteback()">Test connection</button>
+    </div>
+    <div class="hint" id="writebackStatus" style="margin-top:8px;color:#7a8a9a"></div>
+    <div class="hint" style="margin-top:10px">With this set, the Battery / Other SVC score boxes are editable and every change is written straight into the Sheet's score columns, so whoever opens the app next sees it. The URL comes from deploying <b>sheet_writeback.gs</b> (in this app's repo) as a Web app on the roster Sheet &mdash; Extensions &rarr; Apps Script &rarr; Deploy. Without it, scores are read-only here and are changed in the Sheet.</div>
+  </div>
 </div>
 </div>
 </div>
@@ -209,6 +232,14 @@ const KEY_BAT    = 'pal_scores_battery';
 const KEY_SVC    = 'pal_scores_other';
 const KEY_ROSTER_CACHE = 'pal_scores_roster_cache';
 const KEY_OUTBOX = 'pal_scores_outbox';
+const KEY_WRITEBACK = 'pal_scores_writeback';
+const KEY_WB_TOKEN  = 'pal_scores_writeback_token';
+
+// Score write-back endpoint: the Apps Script Web app deployed on the roster
+// Sheet (see sheet_writeback.gs).  Used only when localStorage has no value
+// yet, exactly like DEFAULT_SHEET_URL, so every navigator gets write-back
+// without touching Settings.  Empty = scores are read-only in the app.
+const DEFAULT_WRITEBACK_URL = '';
 
 // Pre-filled CSV URL (same canonical Sheet as the Schedule Composer).  Used
 // only when localStorage has no value yet.  If the Sheet's publish URL ever
@@ -234,6 +265,13 @@ let rosterFetchedAt = null;
 let rosterFromCache = false;
 let refreshInFlight = false;   // guards concurrent refreshFromSheet() calls
 let lastRefreshAt   = 0;       // epoch ms of the last completed refresh
+let writebackUrl   = '';
+let writebackToken = '';
+// Score edits not yet confirmed by the Sheet, keyed "bat|Name" / "svc|Name":
+// {name, field, value, state: 'saving'|'failed', error}.  While an entry is here
+// the Sheet-derived value must not overwrite what the user typed.
+let pendingWrites = {};
+let writeTimers   = {};        // debounce handles, same keys
 
 // ── State persistence ────────────────────────────────────────────────────────
 function loadState() {
@@ -242,7 +280,12 @@ function loadState() {
   try { svcScores = JSON.parse(localStorage.getItem(KEY_SVC) || '{}'); } catch { svcScores = {}; }
   sheetUrl  = localStorage.getItem(KEY_SHEET)  || DEFAULT_SHEET_URL;
   editorUrl = localStorage.getItem(KEY_EDITOR) || '';
+  const wb = localStorage.getItem(KEY_WRITEBACK);
+  writebackUrl   = (wb === null ? DEFAULT_WRITEBACK_URL : wb).trim();
+  writebackToken = localStorage.getItem(KEY_WB_TOKEN) || '';
 }
+function saveWritebackUrl()   { writebackUrl   = document.getElementById('writebackUrl').value.trim();   localStorage.setItem(KEY_WRITEBACK, writebackUrl); renderActive(); }
+function saveWritebackToken() { writebackToken = document.getElementById('writebackToken').value.trim(); localStorage.setItem(KEY_WB_TOKEN, writebackToken); }
 function saveTechs()  { localStorage.setItem(KEY_TECHS, JSON.stringify(techs)); }
 function saveBat()    { localStorage.setItem(KEY_BAT,   JSON.stringify(batScores)); }
 function saveSvc()    { localStorage.setItem(KEY_SVC,   JSON.stringify(svcScores)); }
@@ -300,23 +343,38 @@ function pruneScoresToRoster() {
 // old "leave blank to keep the existing value" advice is actively misleading --
 // there is nothing to leave blank, the cell is the value.
 const HINT_BAT_LOCAL = 'Battery techs and battery installers. Leave blank to keep the existing value. Unscored techs default to 5 in the router.';
-const HINT_BAT_SHEET = 'Battery techs and battery installers. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. A blank cell keeps the tech’s existing score; unscored techs default to 5 in the router.';
+const HINT_BAT_SHEET = 'Battery techs and battery installers. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. To edit them here, set the write-back URL on the Settings tab. A blank cell keeps the tech’s existing score; unscored techs default to 5 in the router.';
+const HINT_BAT_WB    = 'Battery techs and battery installers. Scores live in the Google Sheet: the app pulls them when it opens, and every change you type here is saved straight back to the Sheet so the next person sees it. Then Open in Gmail to send the full set to the monitor. Unscored techs default to 5 in the router.';
 const HINT_SVC_LOCAL = 'Road service techs. Leave blank to keep the existing value. Unscored techs default to 3 in the router.';
-const HINT_SVC_SHEET = 'Road service techs. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. A blank cell keeps the tech’s existing score; unscored techs default to 3 in the router.';
+const HINT_SVC_SHEET = 'Road service techs. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. To edit them here, set the write-back URL on the Settings tab. A blank cell keeps the tech’s existing score; unscored techs default to 3 in the router.';
+const HINT_SVC_WB    = 'Road service techs. Scores live in the Google Sheet: the app pulls them when it opens, and every change you type here is saved straight back to the Sheet so the next person sees it. Then Open in Gmail to send the full set to the monitor. Unscored techs default to 3 in the router.';
 
-function scoreInputHtml(which, name, cur, max, fromSheet) {
-  if (fromSheet) {
+// Three ways a score box can behave:
+//   local     - no score columns in the Sheet: per-browser entry (legacy)
+//   readonly  - Sheet owns the scores, no write-back configured
+//   writeback - Sheet owns the scores AND we can save into it: editable, every
+//               change is pushed to the Sheet and its status shown on the row
+function scoreMode() {
+  if (!rosterCarriesScores(techs)) return 'local';
+  return (sheetMode && writebackUrl) ? 'writeback' : 'readonly';
+}
+
+function scoreInputHtml(which, name, cur, max, mode) {
+  if (mode === 'readonly') {
     return `<input type="number" value="${cur}" disabled ` +
-           `title="Scores are owned by the Google Sheet. Edit the Sheet, then Refresh.">`;
+           `title="Scores are owned by the Google Sheet. Edit the Sheet, then Refresh — or set the write-back URL in Settings to edit here.">`;
   }
+  const key = wbKey(which, name);
+  const status = mode === 'writeback' ? `<span class="wb" id="wb-${escapeAttr(key)}"></span>` : '';
   return `<input type="number" min="1" max="${max}" step="1" value="${cur}" ` +
-         `data-name="${escapeAttr(name)}" oninput="onScoreInput('${which}',this)">`;
+         `data-name="${escapeAttr(name)}" oninput="onScoreInput('${which}',this)">` + status;
 }
 
 function renderBat() {
   const list = document.getElementById('batList');
-  const fromSheet = rosterCarriesScores(techs);
-  document.getElementById('batHint').textContent = fromSheet ? HINT_BAT_SHEET : HINT_BAT_LOCAL;
+  const mode = scoreMode();
+  document.getElementById('batHint').textContent =
+    mode === 'writeback' ? HINT_BAT_WB : mode === 'readonly' ? HINT_BAT_SHEET : HINT_BAT_LOCAL;
   const batteryTechs = techs.filter(t => t.name && isBatteryRole(t.role));
   if (!batteryTechs.length) {
     list.innerHTML = '<div class="empty">No battery techs/installers yet &mdash; load the roster on the Settings tab or add some on the Tech Roster tab.</div>';
@@ -329,9 +387,10 @@ function renderBat() {
       row.innerHTML =
         `<div class="nm">${escapeHtml(t.name)}</div>` +
         `<span class="role-tag">${escapeHtml(t.role)}</span>` +
-        scoreInputHtml('bat', t.name, cur, 5, fromSheet);
+        scoreInputHtml('bat', t.name, cur, 5, mode);
       list.appendChild(row);
     });
+    refreshWbStatuses();
   }
   updateBatPreview();
 }
@@ -341,13 +400,193 @@ function onScoreInput(which, input) {
   const max   = which === 'bat' ? 5 : 3;
   const name  = input.dataset.name;
   const raw   = input.value.trim();
+  let value = '';
   if (raw === '') { delete store[name]; }
   else {
     const n = parseInt(raw, 10);
-    if (n >= 1 && n <= max) store[name] = n; else delete store[name];
+    if (n >= 1 && n <= max) { store[name] = n; value = n; }
+    else { delete store[name]; }
   }
   if (which === 'bat') { saveBat(); updateBatPreview(); }
   else                 { saveSvc(); updateSvcPreview(); }
+  // Out-of-range text is not sent anywhere; the row just shows nothing until
+  // the number is valid or the box is cleared.
+  if (scoreMode() === 'writeback' && (raw === '' || value !== '')) queueWrite(which, name, value);
+}
+
+// ── Score write-back to the Sheet ────────────────────────────────────────────
+// Each edit becomes one "set" call for that tech + field, debounced so typing
+// "3" then correcting to "2" makes one request.  The Sheet answers with its
+// full score map after the write, which re-syncs everyone else's rows too.
+// Writes are per-cell, so two navigators editing different techs never clobber
+// each other; the same tech edited twice resolves to whoever saved last, which
+// is exactly the Sheet's own semantics.
+const WRITE_DEBOUNCE_MS = 600;
+
+function wbKey(which, name) { return `${which}|${name}`; }
+
+function queueWrite(which, name, value) {
+  const key = wbKey(which, name);
+  pendingWrites[key] = {name, field: which, value, state: 'saving', error: ''};
+  setWbStatus(key, 'saving', 'saving…');
+  clearTimeout(writeTimers[key]);
+  writeTimers[key] = setTimeout(() => flushWrite(key), WRITE_DEBOUNCE_MS);
+}
+
+async function flushWrite(key) {
+  const w = pendingWrites[key];
+  if (!w) return;
+  delete writeTimers[key];
+  w.state = 'saving'; w.error = '';
+  setWbStatus(key, 'saving', 'saving…');
+  try {
+    const resp = await writebackCall({action: 'set', name: w.name, field: w.field, value: w.value});
+    // A newer edit to the same cell superseded this one while it was in flight;
+    // leave its own flush to settle the status.
+    if (pendingWrites[key] !== w) return;
+    delete pendingWrites[key];
+    setWbStatus(key, 'saved', 'saved to Sheet ✓');
+    if (resp && resp.scores) applyLiveScores(resp.scores);
+    setTimeout(() => { if (!pendingWrites[key]) setWbStatus(key, '', ''); }, 4000);
+  } catch (err) {
+    if (pendingWrites[key] !== w) return;
+    w.state = 'failed'; w.error = String(err && err.message ? err.message : err);
+    setWbStatus(key, 'failed', `not saved — retry`);
+    console.warn('write-back failed', key, err);
+  }
+}
+
+function retryWrite(key) {
+  const w = pendingWrites[key];
+  if (!w || w.state !== 'failed') return;
+  flushWrite(key);
+}
+
+function retryFailedWrites() {
+  for (const key of Object.keys(pendingWrites)) {
+    if (pendingWrites[key].state === 'failed') flushWrite(key);
+  }
+}
+
+function setWbStatus(key, cls, text) {
+  const el = document.getElementById(`wb-${key}`);
+  if (!el) return;
+  el.className = 'wb' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  const w = pendingWrites[key];
+  el.title = (w && w.error) ? w.error : (cls === 'failed' ? 'Click to retry' : '');
+  el.onclick = cls === 'failed' ? () => retryWrite(key) : null;
+}
+
+// After a re-render the status spans are fresh; repaint any in-flight/failed ones.
+function refreshWbStatuses() {
+  for (const key of Object.keys(pendingWrites)) {
+    const w = pendingWrites[key];
+    setWbStatus(key, w.state, w.state === 'failed' ? 'not saved — retry' : 'saving…');
+  }
+}
+
+// One round-trip to the Apps Script Web app.  A text/plain POST is a "simple"
+// request (no CORS preflight, which Apps Script cannot answer); the script
+// replies through a redirect that carries Access-Control-Allow-Origin: *.
+// If the POST is blocked anyway (some corporate proxies), fall back to GET with
+// the same fields in the query string -- the script accepts both.
+async function writebackCall(fields) {
+  if (!writebackUrl) throw new Error('no write-back URL');
+  const payload = Object.assign({}, fields);
+  if (writebackToken) payload.token = writebackToken;
+  let text;
+  try {
+    const resp = await fetch(writebackUrl, {
+      method: 'POST', body: JSON.stringify(payload),
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      cache: 'no-store', redirect: 'follow',
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    text = await resp.text();
+  } catch (postErr) {
+    const qs = Object.keys(payload).map(k => `${encodeURIComponent(k)}=${encodeURIComponent(payload[k])}`).join('&');
+    const resp = await fetch(writebackUrl + (writebackUrl.includes('?') ? '&' : '?') + qs,
+                             {cache: 'no-store', redirect: 'follow'});
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    text = await resp.text();
+  }
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error('unexpected reply (is the Web app deployed with access "Anyone"?)'); }
+  if (!data || data.ok !== true) throw new Error((data && data.error) || 'write-back refused');
+  return data;
+}
+
+// Pull the live score map straight from the Sheet.  The published CSV can lag
+// an edit by several minutes; this endpoint reads the cells directly, so the
+// app opens on what the Sheet holds NOW, including what someone else just
+// saved from their copy of the app.
+async function fetchLiveScores() {
+  const data = await writebackCall({action: 'get'});
+  return data.scores || {};
+}
+
+// Merge a {name: {bat, svc}} map from the Sheet into the local score maps and
+// the on-screen boxes.  Cells the user is still editing (pending / failed
+// write) keep the typed value.  Techs not on the roster are ignored.
+function applyLiveScores(live) {
+  if (!live || typeof live !== 'object') return;
+  const byName = {};
+  for (const t of techs) if (t && t.name) byName[t.name] = t;
+  let changed = false;
+  for (const name of Object.keys(live)) {
+    const t = byName[name];
+    if (!t) continue;
+    const battery = isBatteryRole(t.role);
+    const which = battery ? 'bat' : 'svc';
+    if (pendingWrites[wbKey(which, name)]) continue;
+    const rec = live[name] || {};
+    const raw = battery ? rec.bat : rec.svc;
+    if (raw === undefined) continue;   // that column isn't on the Sheet
+    const max = battery ? 5 : 3;
+    const n = parseInt(String(raw == null ? '' : raw).trim(), 10);
+    const store = battery ? batScores : svcScores;
+    const cur = store[name];
+    if (n >= 1 && n <= max) { if (cur !== n) { store[name] = n; changed = true; } }
+    else if (cur !== undefined) { delete store[name]; changed = true; }
+    // Keep the score column in the techs record in step too, so a re-seed from
+    // the (possibly stale) cached roster doesn't roll this value back.
+    if (battery) t.bat_score = (n >= 1 && n <= max) ? String(n) : ''; else t.svc_score = (n >= 1 && n <= max) ? String(n) : '';
+  }
+  if (changed) { saveBat(); saveSvc(); saveTechs(); }
+  // Update boxes in place -- never re-render while someone may be typing.
+  document.querySelectorAll('#batList input[data-name], #svcList input[data-name]').forEach(inp => {
+    if (document.activeElement === inp) return;
+    const name = inp.dataset.name;
+    const inBat = !!inp.closest('#batList');
+    if (pendingWrites[wbKey(inBat ? 'bat' : 'svc', name)]) return;
+    const v = inBat ? batScores[name] : svcScores[name];
+    const want = v != null ? String(v) : '';
+    if (inp.value !== want) inp.value = want;
+  });
+  updateBatPreview(); updateSvcPreview();
+}
+
+async function overlayLiveScores() {
+  if (scoreMode() !== 'writeback' || !navigator.onLine) return;
+  try { applyLiveScores(await fetchLiveScores()); }
+  catch (err) { console.warn('live score fetch failed', err); }
+}
+
+async function testWriteback() {
+  saveWritebackUrl(); saveWritebackToken();
+  const status = document.getElementById('writebackStatus');
+  if (!writebackUrl) { status.textContent = 'Paste the Web app URL first.'; return; }
+  status.textContent = 'Contacting the Sheet …';
+  try {
+    const live = await fetchLiveScores();
+    const n = Object.keys(live).length;
+    status.textContent = `Connected — the Sheet returned scores for ${n} tech(s) at ${new Date().toLocaleTimeString()}.`;
+    applyLiveScores(live);
+  } catch (err) {
+    status.textContent = `Failed: ${err.message}`;
+  }
 }
 
 function buildBatBody() {
@@ -366,8 +605,9 @@ function updateBatPreview() {
 // ── Other SVC Scores tab ──────────────────────────────────────────────────────
 function renderSvc() {
   const list = document.getElementById('svcList');
-  const fromSheet = rosterCarriesScores(techs);
-  document.getElementById('svcHint').textContent = fromSheet ? HINT_SVC_SHEET : HINT_SVC_LOCAL;
+  const mode = scoreMode();
+  document.getElementById('svcHint').textContent =
+    mode === 'writeback' ? HINT_SVC_WB : mode === 'readonly' ? HINT_SVC_SHEET : HINT_SVC_LOCAL;
   const roadTechs = techs.filter(t => t.name && !isBatteryRole(t.role));
   if (!roadTechs.length) {
     list.innerHTML = '<div class="empty">No road-service techs yet &mdash; load the roster on the Settings tab or add some on the Tech Roster tab.</div>';
@@ -380,9 +620,10 @@ function renderSvc() {
       row.innerHTML =
         `<div class="nm">${escapeHtml(t.name)}</div>` +
         `<span class="role-tag">${escapeHtml(t.role)}</span>` +
-        scoreInputHtml('svc', t.name, cur, 3, fromSheet);
+        scoreInputHtml('svc', t.name, cur, 3, mode);
       list.appendChild(row);
     });
+    refreshWbStatuses();
   }
   updateSvcPreview();
 }
@@ -513,6 +754,14 @@ function updateRosPreview() {
 function renderSettings() {
   document.getElementById('sheetUrl').value  = sheetUrl;
   document.getElementById('editorUrl').value = editorUrl;
+  document.getElementById('writebackUrl').value   = writebackUrl;
+  document.getElementById('writebackToken').value = writebackToken;
+  const st = document.getElementById('writebackStatus');
+  if (!st.textContent) {
+    st.textContent = writebackUrl
+      ? 'Write-back URL set — scores typed on the Battery / Other SVC tabs are saved to the Sheet.'
+      : 'Not set — scores are read-only in the app while the Sheet has score columns.';
+  }
 }
 
 // ── Google Sheet CSV ingestion (direct fetch — Google serves CORS *) ──────────
@@ -552,6 +801,9 @@ async function refreshFromSheet() {
     renderActive();
     const scoreNote = seeded === null ? ' (no score columns in Sheet)' : ` + ${seeded} score(s)`;
     status.textContent = `Loaded ${techs.length} techs${scoreNote} from Sheet at ${new Date().toLocaleTimeString()}.`;
+    // The published CSV can trail the Sheet by minutes; with write-back set,
+    // read the score cells directly so we open on what the Sheet holds now.
+    await overlayLiveScores();
   } catch (err) {
     const cached = loadRosterCache();
     if (cached && cached.source_url === url) {
@@ -561,6 +813,7 @@ async function refreshFromSheet() {
       pruneScoresToRoster();
       updateRosterBanner(); renderActive();
       status.textContent = `Fetch failed (${err.message}). Using cached roster from ${relativeTime(cached.fetched_at)}.`;
+      await overlayLiveScores();
     } else {
       status.textContent = `Fetch failed: ${err.message}. Check that the Sheet is Published to Web as CSV.`;
     }
@@ -708,6 +961,13 @@ function seedScoresFromRoster() {
     const battery = isBatteryRole(t.role);
     const raw = battery ? t.bat_score : t.svc_score;
     const max = battery ? 5 : 3;
+    // A score the user typed here that the Sheet hasn't confirmed yet (write
+    // in flight, or failed) must survive a re-seed -- the CSV can't know it.
+    const pend = pendingWrites[wbKey(battery ? 'bat' : 'svc', t.name)];
+    if (pend) {
+      if (pend.value !== '') (battery ? nextBat : nextSvc)[t.name] = pend.value;
+      continue;
+    }
     const n = parseInt(String(raw == null ? '' : raw).trim(), 10);
     if (!(n >= 1 && n <= max)) continue;
     (battery ? nextBat : nextSvc)[t.name] = n;
@@ -790,6 +1050,15 @@ function kindFor(which) {
 }
 
 function openGmail(which) {
+  if (which === 'bat' || which === 'svc') {
+    const stuck = Object.values(pendingWrites).filter(w => w.field === which);
+    if (stuck.length) {
+      const names = stuck.map(w => `${w.name} (${w.state === 'failed' ? 'not saved' : 'still saving'})`).join('\n');
+      if (!confirm(`Some scores have not been saved to the Google Sheet yet:\n\n${names}\n\n` +
+                   `The email will carry what you typed, but the Sheet (and the next person who opens the app) won't have it.\n\n` +
+                   `Send anyway?`)) return;
+    }
+  }
   sendOrQueue(kindFor(which), subjectFor(which), bodyFor(which), RECIPIENTS);
 }
 
@@ -867,6 +1136,7 @@ function sendOrQueue(kind, subject, body, recipients) {
 
 window.addEventListener('online',  () => {
   updateRosterBanner();
+  retryFailedWrites();   // scores typed while offline go to the Sheet now
   const pending = loadOutbox().length;
   if (pending) alert('You\'re back online. ' + pending + ' email(s) waiting in the Outbox.');
 });
@@ -922,6 +1192,8 @@ if ('serviceWorker' in navigator) {
   // works on first load before the Settings tab has been opened.
   document.getElementById('sheetUrl').value  = sheetUrl;
   document.getElementById('editorUrl').value = editorUrl;
+  document.getElementById('writebackUrl').value   = writebackUrl;
+  document.getElementById('writebackToken').value = writebackToken;
 
   // Hydrate from cache first so an offline open shows data immediately.
   const cached = loadRosterCache();
