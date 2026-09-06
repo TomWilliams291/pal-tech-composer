@@ -24,6 +24,12 @@
 //   POST {"action":"get"}                         -> {ok:true, scores:{name:{bat,svc}}}
 //   POST {"action":"set","name":..,"field":"bat"|"svc","value":1..5|1..3|""}
 //                                                 -> {ok:true, scores:{...}}   (scores = whole sheet, after the write)
+//        A tech carries exactly ONE score, in the column their current role
+//        uses: writing a non-blank Battery score blanks that tech's Other SVC
+//        cell, and vice versa.  Techs start as road service (Other SVC score),
+//        then move to battery installer / battery tech (Battery score); the
+//        old-role score used to linger unseen because the app only shows the
+//        column for the current role.
 //   GET  ?action=set&name=..&field=..&value=..    -> same (fallback when POST is blocked)
 //   Any failure                                   -> {ok:false, error:"..."}
 //
@@ -176,6 +182,13 @@ function setScore_(req) {
     }
     if (rowIx < 0) return {ok: false, error: '"' + name + '" is not on the roster Sheet'};
     L.sheet.getRange(rowIx + 2, ixCol + 1).setValue(value);
+    // One score per tech: a real score in one column clears the other column
+    // (a stale score from the tech's previous role).  Clearing a score (blank)
+    // leaves the other column alone.
+    var ixOther = field === 'bat' ? L.ixSvc : L.ixBat;
+    if (value !== '' && ixOther >= 0) {
+      L.sheet.getRange(rowIx + 2, ixOther + 1).setValue('');
+    }
     SpreadsheetApp.flush();
     return {ok: true, scores: readScores_()};
   } finally {
