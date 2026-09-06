@@ -239,7 +239,9 @@ const KEY_WB_TOKEN  = 'pal_scores_writeback_token';
 // Sheet (see sheet_writeback.gs).  Used only when localStorage has no value
 // yet, exactly like DEFAULT_SHEET_URL, so every navigator gets write-back
 // without touching Settings.  Empty = scores are read-only in the app.
-const DEFAULT_WRITEBACK_URL = '';
+// Deployed 2026-09-06 from the roster Sheet's bound Apps Script project
+// "PAL Tech Composer score write-back" (Execute as: Tom, access: Anyone).
+const DEFAULT_WRITEBACK_URL = 'https://script.google.com/macros/s/AKfycbxHO7m1NR7vbqRRWJzGqieh-bzKorFwTb9YMUorWORBt9hcsGRTWuINafjayMd7Zms9PA/exec';
 
 // Pre-filled CSV URL (same canonical Sheet as the Schedule Composer).  Used
 // only when localStorage has no value yet.  If the Sheet's publish URL ever
