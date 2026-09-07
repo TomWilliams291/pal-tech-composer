@@ -53,6 +53,11 @@ input[type=email]:focus{outline:none;border-color:#c1121f}
 .hint{font-size:10.5px;color:#3a5a7a;margin-top:3px}
 .hint.warn{color:#e8a020}
 .pv-hdr{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:8px}
+/* Per-tab "sent to the monitor" status line, fed by the Sheet's sync block. */
+.sync{font-size:12.5px;padding:8px 10px;border-radius:6px;border:1px solid #0f3460;background:#0d1b2a;color:#b8c8d8}
+.sync.ok{border-color:#1f4d2e;color:#4ade80}
+.sync.pending{border-color:#5a3d10;color:#e8a020}
+.sync.bad{border-color:#5a1a1a;color:#f87171}
 .pv-meta{font-size:11px;color:#667;margin-bottom:4px;word-break:break-all}
 .pv-meta b{color:#aaa;font-weight:600}
 .pvbody{font-family:'Courier New',monospace;font-size:11.5px;white-space:pre-wrap;color:#b8c8d8;line-height:1.55;background:#0d1b2a;border:1px solid #0f3460;border-radius:6px;padding:12px;max-height:520px;overflow-y:auto;word-break:break-word}
@@ -84,7 +89,6 @@ textarea:focus{outline:none;border-color:#c1121f}
   <button class="tab-btn"        id="tab-svc"   onclick="switchTab('svc',this)">Other SVC Scores</button>
   <button class="tab-btn"        id="tab-techs" onclick="switchTab('techs',this)">Tech Roster</button>
   <button class="tab-btn"        id="tab-set"   onclick="switchTab('settings',this)">Settings</button>
-  <button class="tab-btn" id="outboxTabBtn" onclick="switchTab('outbox',this)" style="display:none;color:#e8a020">Outbox (0)</button>
 </div>
 
 <!-- ─────────── Battery Scores tab ─────────── -->
@@ -99,12 +103,12 @@ textarea:focus{outline:none;border-color:#c1121f}
 </div>
 <div class="right">
   <div class="card" style="position:sticky;top:14px">
-    <div class="pv-hdr">Email Preview</div>
-    <div class="pv-meta">To: <b id="batPvTo"></b></div>
+    <div class="pv-hdr">Sent to the monitor</div>
+    <div class="sync" id="batSync">Checking&hellip;</div>
+    <div class="pv-meta" style="margin-top:10px">To: <b id="batPvTo"></b></div>
     <div class="pv-meta">Subject: <b id="batPvSub"></b></div>
     <div id="batPvBody" class="pvbody"></div>
-    <button class="sendbtn" onclick="openGmail('bat')">&#9993; Open in Gmail</button>
-    <button class="cpybtn" onclick="copyBody('bat',this)">Copy email body</button>
+    <div class="hint" style="margin-top:8px">The Google Sheet emails this to the monitor by itself, about a minute after any change. Nothing to click.</div>
   </div>
 </div>
 </div>
@@ -122,12 +126,12 @@ textarea:focus{outline:none;border-color:#c1121f}
 </div>
 <div class="right">
   <div class="card" style="position:sticky;top:14px">
-    <div class="pv-hdr">Email Preview</div>
-    <div class="pv-meta">To: <b id="svcPvTo"></b></div>
+    <div class="pv-hdr">Sent to the monitor</div>
+    <div class="sync" id="svcSync">Checking&hellip;</div>
+    <div class="pv-meta" style="margin-top:10px">To: <b id="svcPvTo"></b></div>
     <div class="pv-meta">Subject: <b id="svcPvSub"></b></div>
     <div id="svcPvBody" class="pvbody"></div>
-    <button class="sendbtn" onclick="openGmail('svc')">&#9993; Open in Gmail</button>
-    <button class="cpybtn" onclick="copyBody('svc',this)">Copy email body</button>
+    <div class="hint" style="margin-top:8px">The Google Sheet emails this to the monitor by itself, about a minute after any change. Nothing to click.</div>
   </div>
 </div>
 </div>
@@ -147,13 +151,12 @@ textarea:focus{outline:none;border-color:#c1121f}
 </div>
 <div class="right">
   <div class="card" style="position:sticky;top:14px">
-    <div class="pv-hdr">Email Preview &mdash; Tech Roster Update</div>
-    <div class="pv-meta">To: <b id="rosPvTo"></b></div>
+    <div class="pv-hdr">Sent to the monitor &mdash; Tech Roster Update</div>
+    <div class="sync" id="rosSync">Checking&hellip;</div>
+    <div class="pv-meta" style="margin-top:10px">To: <b id="rosPvTo"></b></div>
     <div class="pv-meta">Subject: <b id="rosPvSub"></b></div>
     <div id="rosPvBody" class="pvbody"></div>
-    <button class="sendbtn" onclick="openGmail('ros')">&#9993; Send Roster Update</button>
-    <button class="cpybtn" onclick="copyBody('ros',this)">Copy email body</button>
-    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + roles + aliases + phone + backup phone to the monitor (techs.json). techs.json is the source of truth for ROLE and phone numbers (used by the wake-up escalation ladder) &mdash; send this after you edit the Sheet. Add a <b>Phone 2</b> column in the Sheet for a tech's backup / cell number; the ladder dials it right after the primary before escalating. A tech with Role <b>Director</b> is the top escalation contact.</div>
+    <div class="hint" style="margin-top:8px">The Roster Update email ships canonical names + roles + aliases + phone + backup phone to the monitor (techs.json). techs.json is the source of truth for ROLE and phone numbers (used by the wake-up escalation ladder). The Google Sheet emails it by itself about a minute after any roster edit &mdash; nothing to click. Add a <b>Phone 2</b> column in the Sheet for a tech's backup / cell number; the ladder dials it right after the primary before escalating. A tech with Role <b>Director</b> is the top escalation contact.</div>
   </div>
 </div>
 </div>
@@ -207,21 +210,6 @@ textarea:focus{outline:none;border-color:#c1121f}
 </div>
 </div>
 
-<!-- ─────────── Outbox tab ─────────── -->
-<div id="outboxTab" style="display:none">
-<div class="wrap">
-<div class="form" style="max-width:900px">
-  <div class="card">
-    <div class="ct">Pending Emails &mdash; <span id="outboxCount">0</span> queued
-      <button class="cpybtn" style="margin-left:auto;width:auto;margin:0;padding:6px 14px;color:#e8a020;border-color:#3a2a10" onclick="clearOutbox()">Clear all</button>
-    </div>
-    <div class="hint" style="margin-bottom:10px">These emails were composed while you were offline. Click <b>Send now</b> to open each in Gmail and hit send, then <b>Mark sent</b> to remove it.</div>
-    <div id="outboxList"></div>
-  </div>
-</div>
-</div>
-</div>
-
 <script>
 const RECIPIENTS = ['palautonav@gmail.com'];
 
@@ -231,7 +219,6 @@ const KEY_EDITOR = 'pal_scores_editor';
 const KEY_BAT    = 'pal_scores_battery';
 const KEY_SVC    = 'pal_scores_other';
 const KEY_ROSTER_CACHE = 'pal_scores_roster_cache';
-const KEY_OUTBOX = 'pal_scores_outbox';
 const KEY_WRITEBACK = 'pal_scores_writeback';
 const KEY_WB_TOKEN  = 'pal_scores_writeback_token';
 
@@ -302,12 +289,10 @@ function switchTab(tab, btn) {
   document.getElementById('svcTab').style.display      = tab === 'svc'      ? '' : 'none';
   document.getElementById('techsTab').style.display    = tab === 'techs'    ? '' : 'none';
   document.getElementById('settingsTab').style.display = tab === 'settings' ? '' : 'none';
-  document.getElementById('outboxTab').style.display   = tab === 'outbox'   ? '' : 'none';
   if (tab === 'bat')      renderBat();
   if (tab === 'svc')      renderSvc();
   if (tab === 'techs')    renderTechs();
   if (tab === 'settings') renderSettings();
-  if (tab === 'outbox')   renderOutbox();
   window.scrollTo(0, 0);
 }
 
@@ -346,10 +331,10 @@ function pruneScoresToRoster() {
 // there is nothing to leave blank, the cell is the value.
 const HINT_BAT_LOCAL = 'Battery techs and battery installers. Leave blank to keep the existing value. Unscored techs default to 5 in the router.';
 const HINT_BAT_SHEET = 'Battery techs and battery installers. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. To edit them here, set the write-back URL on the Settings tab. A blank cell keeps the tech’s existing score; unscored techs default to 5 in the router.';
-const HINT_BAT_WB    = 'Battery techs and battery installers. Scores live in the Google Sheet: the app pulls them when it opens, and every change you type here is saved straight back to the Sheet so the next person sees it. Then Open in Gmail to send the full set to the monitor. Unscored techs default to 5 in the router.';
+const HINT_BAT_WB    = 'Battery techs and battery installers. Scores live in the Google Sheet: the app pulls them when it opens, every change you type here is saved straight back to the Sheet, and the Sheet emails the monitor by itself. Unscored techs default to 5 in the router.';
 const HINT_SVC_LOCAL = 'Road service techs. Leave blank to keep the existing value. Unscored techs default to 3 in the router.';
 const HINT_SVC_SHEET = 'Road service techs. Scores come from the Google Sheet and are read-only here — edit the Sheet, then send. To edit them here, set the write-back URL on the Settings tab. A blank cell keeps the tech’s existing score; unscored techs default to 3 in the router.';
-const HINT_SVC_WB    = 'Road service techs. Scores live in the Google Sheet: the app pulls them when it opens, and every change you type here is saved straight back to the Sheet so the next person sees it. Then Open in Gmail to send the full set to the monitor. Unscored techs default to 3 in the router.';
+const HINT_SVC_WB    = 'Road service techs. Scores live in the Google Sheet: the app pulls them when it opens, every change you type here is saved straight back to the Sheet, and the Sheet emails the monitor by itself. Unscored techs default to 3 in the router.';
 
 // Three ways a score box can behave:
 //   local     - no score columns in the Sheet: per-browser entry (legacy)
@@ -449,6 +434,7 @@ async function flushWrite(key) {
     delete pendingWrites[key];
     setWbStatus(key, 'saved', 'saved to Sheet ✓');
     if (resp && resp.scores) applyLiveScores(resp.scores);
+    if (resp && resp.sync) { syncStatus = resp.sync; renderSyncStatus(); }
     setTimeout(() => { if (!pendingWrites[key]) setWbStatus(key, '', ''); }, 4000);
   } catch (err) {
     if (pendingWrites[key] !== w) return;
@@ -523,10 +509,57 @@ async function writebackCall(fields) {
 // Pull the live score map straight from the Sheet.  The published CSV can lag
 // an edit by several minutes; this endpoint reads the cells directly, so the
 // app opens on what the Sheet holds NOW, including what someone else just
-// saved from their copy of the app.
+// saved from their copy of the app.  The same reply carries the Sheet's
+// send-to-monitor status, which is rendered on each tab.
 async function fetchLiveScores() {
   const data = await writebackCall({action: 'get'});
+  if (data.sync) { syncStatus = data.sync; renderSyncStatus(); }
   return data.scores || {};
+}
+
+// ── "Sent to the monitor" status ─────────────────────────────────────────────
+// The Sheet's own script emails Battery Scores / Other SVC Scores / Tech Roster
+// Update to the monitor whenever their content changes (see sheet_writeback.gs,
+// syncToMonitor).  The app no longer sends anything; it just shows, per tab,
+// when that email last went out and whether the Sheet holds changes the
+// monitor hasn't been sent yet.
+let syncStatus = null;
+const SYNC_POLL_MS = 30000;
+
+function _syncLine(kind) {
+  const el = document.getElementById(kind + 'Sync');
+  if (!el) return;
+  if (!writebackUrl) { el.className = 'sync'; el.textContent = 'No write-back URL (Settings) — the Sheet cannot report its send status.'; return; }
+  if (!syncStatus) { el.className = 'sync'; el.textContent = 'Checking the Sheet…'; return; }
+  const s = syncStatus[kind] || {};
+  const every = syncStatus.every_minutes || 1;
+  const when = s.last_sent ? new Date(s.last_sent) : null;
+  const whenTxt = when && !isNaN(when) ? `${when.toLocaleDateString()} ${when.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}` : 'never';
+  if (syncStatus.trigger === false) {
+    el.className = 'sync bad';
+    el.textContent = `Automatic sending is OFF on the Sheet (no timer installed). Last sent: ${whenTxt}.`;
+  } else if (s.pending) {
+    el.className = 'sync pending';
+    el.textContent = `Changes waiting — the Sheet sends them to the monitor within ${every} min. Last sent: ${whenTxt}.`;
+  } else if (!s.lines) {
+    el.className = 'sync';
+    el.textContent = 'Nothing to send yet (no scores on this scale).';
+  } else {
+    el.className = 'sync ok';
+    el.textContent = `Up to date — sent to the monitor ${whenTxt}.`;
+  }
+}
+function renderSyncStatus() { _syncLine('bat'); _syncLine('svc'); _syncLine('ros'); }
+
+let syncPollTimer = null;
+async function pollSyncStatus() {
+  if (!writebackUrl || !navigator.onLine || document.visibilityState !== 'visible') return;
+  try { const data = await writebackCall({action: 'get'}); if (data.sync) { syncStatus = data.sync; renderSyncStatus(); } }
+  catch (err) { console.warn('sync status poll failed', err); }
+}
+function startSyncPoll() {
+  if (syncPollTimer) clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(pollSyncStatus, SYNC_POLL_MS);
 }
 
 // Merge a {name: {bat, svc}} map from the Sheet into the local score maps and
@@ -1034,113 +1067,14 @@ function updateRosterBanner() {
   banner.style.color = color;
 }
 
-// ── Send actions (offline-aware) ──────────────────────────────────────────────
-function bodyFor(which) {
-  if (which === 'bat') return buildBatBody();
-  if (which === 'svc') return buildSvcBody();
-  return buildRosBody();
-}
-function subjectFor(which) {
-  if (which === 'bat') return `Battery Scores ${todayStr()}`;
-  if (which === 'svc') return `Other SVC Scores ${todayStr()}`;
-  return `Tech Roster Update ${todayStr()}`;
-}
-function kindFor(which) {
-  if (which === 'bat') return 'Battery Scores';
-  if (which === 'svc') return 'Other SVC Scores';
-  return 'Tech Roster Update';
-}
-
-function openGmail(which) {
-  if (which === 'bat' || which === 'svc') {
-    const stuck = Object.values(pendingWrites).filter(w => w.field === which);
-    if (stuck.length) {
-      const names = stuck.map(w => `${w.name} (${w.state === 'failed' ? 'not saved' : 'still saving'})`).join('\n');
-      if (!confirm(`Some scores have not been saved to the Google Sheet yet:\n\n${names}\n\n` +
-                   `The email will carry what you typed, but the Sheet (and the next person who opens the app) won't have it.\n\n` +
-                   `Send anyway?`)) return;
-    }
-  }
-  sendOrQueue(kindFor(which), subjectFor(which), bodyFor(which), RECIPIENTS);
-}
-
-function copyBody(which, btn) {
-  navigator.clipboard.writeText(bodyFor(which)).then(() => {
-    if (btn) { const o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = o, 1500); }
-  });
-}
-
-// ── Outbox ────────────────────────────────────────────────────────────────────
-function loadOutbox() {
-  try { const a = JSON.parse(localStorage.getItem(KEY_OUTBOX) || '[]'); return Array.isArray(a) ? a : []; }
-  catch { return []; }
-}
-function saveOutbox(items) { localStorage.setItem(KEY_OUTBOX, JSON.stringify(items)); updateOutboxTab(); }
-function updateOutboxTab() {
-  const items = loadOutbox();
-  const btn = document.getElementById('outboxTabBtn');
-  if (!btn) return;
-  if (items.length) { btn.style.display = ''; btn.textContent = `Outbox (${items.length})`; }
-  else {
-    btn.style.display = 'none';
-    if (document.getElementById('outboxTab').style.display !== 'none')
-      switchTab('bat', document.getElementById('tab-bat'));
-  }
-}
-function enqueueOutbox(kind, subject, body, recipients) {
-  const items = loadOutbox();
-  items.push({id: 'mail_' + Date.now() + '_' + Math.random().toString(36).slice(2,8), kind, subject, body, recipients, created_at: new Date().toISOString()});
-  saveOutbox(items);
-}
-function gmailUrlFor(item) {
-  return 'https://mail.google.com/mail/?view=cm&fs=1'
-    + '&to='   + encodeURIComponent((item.recipients || []).join(','))
-    + '&su='   + encodeURIComponent(item.subject || '')
-    + '&body=' + encodeURIComponent(item.body || '');
-}
-function sendOutboxItem(id) { const it = loadOutbox().find(i => i.id === id); if (it) window.open(gmailUrlFor(it), '_blank'); }
-function markSent(id) { saveOutbox(loadOutbox().filter(i => i.id !== id)); renderOutbox(); }
-function removeOutboxItem(id) { if (!confirm('Remove this email without sending?')) return; saveOutbox(loadOutbox().filter(i => i.id !== id)); renderOutbox(); }
-function clearOutbox() { if (!loadOutbox().length) return; if (!confirm('Remove ALL pending emails without sending?')) return; saveOutbox([]); renderOutbox(); }
-function renderOutbox() {
-  const items = loadOutbox();
-  document.getElementById('outboxCount').textContent = items.length;
-  const list = document.getElementById('outboxList');
-  if (!items.length) { list.innerHTML = '<i style="color:#5a6a7a">Nothing pending.</i>'; return; }
-  list.innerHTML = '';
-  for (const item of items) {
-    const card = document.createElement('div');
-    card.style.cssText = 'border:1px solid #0f3460;border-radius:6px;padding:10px;margin-bottom:8px;background:#0d1b2a';
-    card.innerHTML =
-      '<div style="font-size:11px;color:#7a8a9a;margin-bottom:4px">' + escapeHtml(item.kind) + ' &middot; queued ' + escapeHtml(relativeTime(item.created_at)) + '</div>'
-      + '<div style="font-size:13px;color:#fff;margin-bottom:6px;font-weight:600">' + escapeHtml(item.subject) + '</div>'
-      + '<pre style="font-family:\'Courier New\',monospace;font-size:11px;color:#b8c8d8;white-space:pre-wrap;background:#16213e;padding:8px;border-radius:4px;max-height:180px;overflow:auto;margin-bottom:8px">' + escapeHtml(item.body) + '</pre>'
-      + '<div style="display:flex;gap:6px">'
-        + '<button class="sendbtn" style="flex:1;margin:0;padding:8px" onclick="sendOutboxItem(\'' + item.id + '\')">&#9993; Send now</button>'
-        + '<button class="cpybtn" style="width:auto;margin:0;padding:8px 14px" onclick="markSent(\'' + item.id + '\')">Mark sent</button>'
-        + '<button class="cpybtn" style="width:auto;margin:0;padding:8px 14px;color:#c1121f;border-color:#3a1010" onclick="removeOutboxItem(\'' + item.id + '\')">Remove</button>'
-      + '</div>';
-    list.appendChild(card);
-  }
-}
-
-function sendOrQueue(kind, subject, body, recipients) {
-  if (!navigator.onLine) {
-    enqueueOutbox(kind, subject, body, recipients);
-    alert('No network — email queued.\n\n' + loadOutbox().length + ' email(s) now in the Outbox.\nWhen back online, open the Outbox tab and click "Send now".');
-    return;
-  }
-  window.open('https://mail.google.com/mail/?view=cm&fs=1'
-    + '&to='   + encodeURIComponent(recipients.join(','))
-    + '&su='   + encodeURIComponent(subject)
-    + '&body=' + encodeURIComponent(body), '_blank');
-}
+// Sending is done by the Sheet's own script (sheet_writeback.gs, syncToMonitor)
+// -- the app no longer opens Gmail or queues an Outbox.  The previews above
+// show what the Sheet sends; the sync line shows when it last did.
 
 window.addEventListener('online',  () => {
   updateRosterBanner();
   retryFailedWrites();   // scores typed while offline go to the Sheet now
-  const pending = loadOutbox().length;
-  if (pending) alert('You\'re back online. ' + pending + ' email(s) waiting in the Outbox.');
+  pollSyncStatus();
 });
 window.addEventListener('offline', updateRosterBanner);
 
@@ -1167,7 +1101,7 @@ function maybeRefreshFromSheet() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') maybeRefreshFromSheet();
+  if (document.visibilityState === 'visible') { maybeRefreshFromSheet(); pollSyncStatus(); }
 });
 // A bfcache restore (mobile back/forward, or returning to a suspended PWA on
 // iOS) does not always fire visibilitychange -- pageshow.persisted catches it.
@@ -1214,9 +1148,10 @@ if ('serviceWorker' in navigator) {
   // instead of last week's.
   pruneScoresToRoster();
   updateRosterBanner();
-  updateOutboxTab();
   renderBat();
+  renderSyncStatus();
   if (url) refreshFromSheet();   // fresh fetch if online; falls back to cache
+  startSyncPoll();
 })();
 window.addEventListener('load', () => window.scrollTo(0, 0));
 </script>

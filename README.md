@@ -18,12 +18,35 @@ local launcher needed.
 
 - **Battery Scores tab** — `battery_tech` and `battery_installer` techs.
   Type the score in the box; it is saved to the Sheet as you type (see
-  *Score write-back* below). Then **Open in Gmail** to send the set to the
-  monitor.
+  *Score write-back* below). The Sheet then emails the monitor by itself
+  (see *Automatic send to the monitor*). Nothing to click.
 - **Other SVC Scores tab** — `rs` (road service) techs. Same.
-- **Tech Roster tab** — review the roster and send a Roster Update so the
-  monitor's `techs.json` (the source of truth for ROLE) stays current. Roster
-  rows (name, role, aliases, email, phones) are edited in the Sheet itself.
+- **Tech Roster tab** — review the roster. Roster rows (name, role, aliases,
+  email, phones) are edited in the Sheet itself; the Sheet emails the Roster
+  Update to the monitor by itself after any change.
+
+### Automatic send to the monitor
+
+The monitor learns scores and roster only from three emails (`Battery
+Scores`, `Other SVC Scores`, `Tech Roster Update`). Those used to be sent by a
+person clicking **Open in Gmail** in the app, which was easy to forget after
+typing scores and needed a Gmail account the navigator on duty may not have.
+Since 2026-09-07 the Sheet's own script sends them: a timer runs
+`syncToMonitor()` every minute, rebuilds the three bodies from the Sheet in
+exactly the format the app used to produce, and emails any whose content
+differs from the last one sent. Nothing changed, nothing sent. The emails come
+from the Google account that deployed the script; the monitor matches on
+subject only.
+
+Each tab shows a **Sent to the monitor** line fed by the Sheet: *up to date,
+sent at …*, *changes waiting, sends within 1 min*, or a red warning if the
+timer is missing. The app itself no longer sends email, so the Open in Gmail,
+Copy body and Outbox controls are gone.
+
+Setup, once, after deploying the script: in the Apps Script editor pick
+`installTrigger` in the function dropdown and **Run** it (authorise the
+send-mail and trigger permissions when asked). It installs the timer and does
+a first sync.
 
 ### Score write-back
 

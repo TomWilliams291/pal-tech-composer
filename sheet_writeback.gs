@@ -37,12 +37,50 @@
 // position.  Name = header containing "name"; Battery Score = "score" + "batt";
 // Other SVC Score = "score" (not "batt") + one of "svc" / "other" / "road".
 
+// ── Automatic send to the monitor ─────────────────────────────────────────────
+// The monitor (navigator/scores_watcher.py) learns scores and roster ONLY from
+// three emails: "Battery Scores", "Other SVC Scores", "Tech Roster Update".
+// Those used to be sent by a person clicking "Open in Gmail" in the app, which
+// (a) was easy to forget after typing scores and (b) needs a Gmail account the
+// navigator on duty may not have.  So the Sheet sends them itself:
+//
+//   syncToMonitor() runs on a time trigger (installTrigger(), every minute).
+//   It builds the three bodies from the Sheet in exactly the format the app
+//   produced, and emails any whose content differs from the last one sent
+//   (Script Properties SENT_<kind> hold the last-sent body, SENT_AT_<kind> the
+//   time).  Nothing changed => nothing sent.  Runs as the deploying account, so
+//   the emails come from that Gmail; the watcher matches on subject only.
+//
+// Run installTrigger() once from the editor after deploying (it asks for the
+// send-mail + trigger scopes).  The Web app's "get" reply carries a `sync`
+// block so the app can show "sent at .. / pending" per tab.
+
+var MONITOR_TO = 'palautonav@gmail.com';   // same recipient the app used
+var SYNC_EVERY_MINUTES = 1;
+var SEND_TZ = 'America/New_York';
+
 // gid of the roster tab (from the published-CSV URL's gid=...).  Set to null to
 // use whichever tab has a score column in its header row.
 var SHEET_GID = 831374063;
 
 var BAT_MAX = 5;
 var SVC_MAX = 3;
+
+// Roles scored on the battery scale; everyone else is on the Other-SVC scale.
+// Mirrors index.html BATTERY_ROLES / normalizeRole.
+var BATTERY_ROLES = {battery_tech: true, battery_installer: true};
+var ROLE_MAP = {
+  'road': 'rs', 'rs': 'rs',
+  'battery': 'battery_tech', 'battery_tech': 'battery_tech',
+  'battery_installer': 'battery_installer', 'installer': 'battery_installer',
+  'locksmith': 'locksmith',
+  'commercial_locksmith': 'commercial_locksmith', 'commercial locksmith': 'commercial_locksmith',
+  'automotive_locksmith': 'automotive_locksmith', 'automotive locksmith': 'automotive_locksmith',
+};
+function normalizeRole_(role) {
+  var r = String(role == null ? '' : role).trim().toLowerCase();
+  return ROLE_MAP[r] || (r || 'rs');
+}
 
 function doGet(e) {
   return handle_(e && e.parameter ? e.parameter : {});
@@ -69,7 +107,7 @@ function handle_(req) {
       return json_({ok: false, error: 'bad token'});
     }
     var action = String(req.action || 'get').toLowerCase();
-    if (action === 'get') return json_({ok: true, scores: readScores_()});
+    if (action === 'get') return json_({ok: true, scores: readScores_(), sync: syncStatus_()});
     if (action === 'set') return json_(setScore_(req));
     return json_({ok: false, error: 'unknown action: ' + action});
   } catch (err) {
@@ -102,6 +140,14 @@ function layout_() {
   if (!sheet) throw new Error('roster tab not found (SHEET_GID=' + SHEET_GID + ')');
   var header = headerOf_(sheet);
   var ixName = findIndex_(header, function (h) { return h.indexOf('name') >= 0; });
+  var ixRole = findIndex_(header, function (h) { return h.indexOf('role') >= 0; });
+  var ixAliases = findIndex_(header, function (h) { return h.indexOf('alias') >= 0; });
+  var ixEmail = findIndex_(header, function (h) { return h.indexOf('email') >= 0; });
+  var ixPhone2 = findIndex_(header, function (h) {
+    return h.indexOf('phone') >= 0 && (h.indexOf('2') >= 0 || h.indexOf('backup') >= 0 ||
+                                       h.indexOf('cell') >= 0 || h.indexOf('secondary') >= 0);
+  });
+  var ixPhone = findIndex_(header, function (h, i) { return h.indexOf('phone') >= 0 && i !== ixPhone2; });
   var ixBat  = findIndex_(header, function (h) { return h.indexOf('score') >= 0 && h.indexOf('batt') >= 0; });
   var ixSvc  = findIndex_(header, function (h) {
     return h.indexOf('score') >= 0 && h.indexOf('batt') < 0 &&
@@ -109,7 +155,141 @@ function layout_() {
   });
   if (ixName < 0) throw new Error('no "Canonical Name" column in header row');
   if (ixBat < 0 && ixSvc < 0) throw new Error('no "Battery Score" / "Other SVC Score" column in header row');
-  return {sheet: sheet, ixName: ixName, ixBat: ixBat, ixSvc: ixSvc};
+  return {sheet: sheet, ixName: ixName, ixRole: ixRole, ixAliases: ixAliases, ixEmail: ixEmail,
+          ixPhone: ixPhone, ixPhone2: ixPhone2, ixBat: ixBat, ixSvc: ixSvc};
+}
+
+function findIndex_(arr, pred) {
+  for (var i = 0; i < arr.length; i++) if (pred(arr[i], i)) return i;
+  return -1;
+}
+
+function str_(v) { return String(v == null ? '' : v).trim(); }
+
+// Every roster row as a record, in Sheet order.  Role normalised to the
+// routing vocabulary, aliases split on commas -- same as the app's parseCsv.
+function rosterRows_() {
+  var L = layout_();
+  var lastRow = L.sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var rows = L.sheet.getRange(2, 1, lastRow - 1, L.sheet.getLastColumn()).getValues();
+  var out = [];
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    var name = str_(row[L.ixName]);
+    if (!name) continue;
+    var aliases = L.ixAliases >= 0 ? str_(row[L.ixAliases]).split(',').map(function (s) { return s.trim(); })
+                                       .filter(function (s) { return s; }) : [];
+    out.push({
+      name: name,
+      role: L.ixRole >= 0 ? normalizeRole_(row[L.ixRole]) : 'rs',
+      aliases: aliases,
+      email: L.ixEmail >= 0 ? str_(row[L.ixEmail]) : '',
+      phone: L.ixPhone >= 0 ? str_(row[L.ixPhone]) : '',
+      phone2: L.ixPhone2 >= 0 ? str_(row[L.ixPhone2]) : '',
+      bat: L.ixBat >= 0 ? cell_(row[L.ixBat]) : '',
+      svc: L.ixSvc >= 0 ? cell_(row[L.ixSvc]) : '',
+    });
+  }
+  return out;
+}
+
+function todayStr_() { return Utilities.formatDate(new Date(), SEND_TZ, 'M/d/yyyy'); }
+
+// The three email bodies, byte-for-byte what index.html's buildBatBody /
+// buildSvcBody / buildRosBody produced, so scores_watcher's parsers see no
+// difference.  `key` is the body minus its dated header line: that is what
+// change detection compares, so a new day alone never triggers a send.
+function buildEmails_() {
+  var rows = rosterRows_();
+  var batLines = [], svcLines = [], rosLines = [];
+  var scored = rows.filter(function (t) { return t.name; });
+  scored.slice().sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; })
+    .forEach(function (t) {
+      var battery = !!BATTERY_ROLES[t.role];
+      var v = battery ? t.bat : t.svc;
+      if (!v) return;
+      var n = parseInt(v, 10);
+      if (battery) { if (n >= 1 && n <= BAT_MAX) batLines.push(t.name + ': ' + n); }
+      else         { if (n >= 1 && n <= SVC_MAX) svcLines.push(t.name + ': ' + n); }
+    });
+  rows.forEach(function (t) {
+    var aliases = t.aliases.join(', ');
+    if (t.phone2)      rosLines.push(t.name + ' | ' + t.role + ' | ' + aliases + ' | ' + t.email + ' | ' + t.phone + ' | ' + t.phone2);
+    else if (t.phone)  rosLines.push(t.name + ' | ' + t.role + ' | ' + aliases + ' | ' + t.email + ' | ' + t.phone);
+    else if (t.email)  rosLines.push(t.name + ' | ' + t.role + ' | ' + aliases + ' | ' + t.email);
+    else if (aliases)  rosLines.push(t.name + ' | ' + t.role + ' | ' + aliases);
+    else               rosLines.push(t.name + ' | ' + t.role);
+  });
+  var d = todayStr_();
+  function mk(subject, lines) {
+    return {subject: subject + ' ' + d, body: [subject + ' ' + d, ''].concat(lines).join('\n'),
+            key: lines.join('\n')};
+  }
+  return {
+    bat: mk('Battery Scores', batLines),
+    svc: mk('Other SVC Scores', svcLines),
+    ros: mk('Tech Roster Update', rosLines),
+  };
+}
+
+var SYNC_KINDS = ['bat', 'svc', 'ros'];
+
+// Email whichever of the three changed since it was last sent.  Idempotent;
+// safe to run every minute.  Called by the time trigger (installTrigger).
+function syncToMonitor() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var emails = buildEmails_();
+    var sent = [];
+    SYNC_KINDS.forEach(function (kind) {
+      var e = emails[kind];
+      if (!e.key) return;                          // nothing to say -> never send an empty set
+      if (props.getProperty('SENT_' + kind) === e.key) return;
+      MailApp.sendEmail({to: MONITOR_TO, subject: e.subject, body: e.body});
+      props.setProperty('SENT_' + kind, e.key);
+      props.setProperty('SENT_AT_' + kind, new Date().toISOString());
+      sent.push(e.subject);
+    });
+    return sent;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Per-kind: when it was last emailed, and whether the Sheet has changes the
+// monitor hasn't been sent yet.  Shown in the app on each tab.
+function syncStatus_() {
+  var props = PropertiesService.getScriptProperties();
+  var emails = buildEmails_();
+  var out = {every_minutes: SYNC_EVERY_MINUTES, trigger: triggerInstalled_()};
+  SYNC_KINDS.forEach(function (kind) {
+    out[kind] = {
+      last_sent: props.getProperty('SENT_AT_' + kind) || null,
+      pending: !!emails[kind].key && props.getProperty('SENT_' + kind) !== emails[kind].key,
+      lines: emails[kind].key ? emails[kind].key.split('\n').length : 0,
+    };
+  });
+  return out;
+}
+
+function triggerInstalled_() {
+  try {
+    return ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'syncToMonitor'; });
+  } catch (err) { return null; }
+}
+
+// Run ONCE from the editor (Run -> installTrigger).  Idempotent: replaces any
+// existing syncToMonitor trigger.  Also does a first sync right away.
+function installTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'syncToMonitor') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('syncToMonitor').timeBased().everyMinutes(SYNC_EVERY_MINUTES).create();
+  var sent = syncToMonitor();
+  Logger.log('trigger installed (every ' + SYNC_EVERY_MINUTES + ' min); first sync sent: ' + JSON.stringify(sent));
 }
 
 function headerOf_(sheet) {
@@ -117,11 +297,6 @@ function headerOf_(sheet) {
   if (lastCol < 1) return [];
   return sheet.getRange(1, 1, 1, lastCol).getValues()[0]
     .map(function (v) { return String(v == null ? '' : v).trim().toLowerCase(); });
-}
-
-function findIndex_(arr, pred) {
-  for (var i = 0; i < arr.length; i++) if (pred(arr[i])) return i;
-  return -1;
 }
 
 function cell_(v) {
@@ -190,7 +365,7 @@ function setScore_(req) {
       L.sheet.getRange(rowIx + 2, ixOther + 1).setValue('');
     }
     SpreadsheetApp.flush();
-    return {ok: true, scores: readScores_()};
+    return {ok: true, scores: readScores_(), sync: syncStatus_()};
   } finally {
     lock.releaseLock();
   }
