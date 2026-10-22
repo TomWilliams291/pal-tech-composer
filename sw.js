@@ -5,7 +5,7 @@
 // CSV, Gmail compose URL).  Bump CACHE_NAME any time the app shell
 // asset list or any cached asset's content changes.
 
-const CACHE_NAME = 'pal-tech-composer-shell-v14';
+const CACHE_NAME = 'pal-tech-composer-shell-v15';
 const APP_SHELL = [
   './',
   './index.html',
@@ -40,6 +40,23 @@ self.addEventListener('fetch', event => {
   // not be cached, and the browser's normal failure path is what
   // triggers the outbox fallback in the page script.
   if (url.origin !== self.location.origin) return;
+  // The page itself is network-first: online users always get the latest
+  // HTML (a cache-first page kept serving the old version after a push).
+  // The cached copy is only the offline fallback.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req, { cache: 'no-store' }).then(resp => {
+        if (resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, clone));
+        }
+        return resp;
+      }).catch(() =>
+        caches.match(req).then(cached => cached || caches.match('./index.html'))
+      )
+    );
+    return;
+  }
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) return cached;
