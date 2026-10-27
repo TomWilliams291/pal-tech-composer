@@ -71,6 +71,7 @@ var SVC_MAX = 3;
 var BATTERY_ROLES = {battery_tech: true, battery_installer: true};
 var ROLE_MAP = {
   'road': 'rs', 'rs': 'rs',
+  'jss': 'jss', 'jump_start_specialist': 'jss', 'jump start specialist': 'jss', 'jumpstart': 'jss',
   'battery': 'battery_tech', 'battery_tech': 'battery_tech',
   'battery_installer': 'battery_installer', 'installer': 'battery_installer',
   'locksmith': 'locksmith',
