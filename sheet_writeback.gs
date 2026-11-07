@@ -144,9 +144,13 @@ function layout_() {
   var ixRole = findIndex_(header, function (h) { return h.indexOf('role') >= 0; });
   var ixAliases = findIndex_(header, function (h) { return h.indexOf('alias') >= 0; });
   var ixEmail = findIndex_(header, function (h) { return h.indexOf('email') >= 0; });
+  // Backup phone = a phone-ish header carrying a 2/backup/cell/secondary/personal
+  // marker ("Phone 2", "Personal Phone").  Primary = the first other phone-ish
+  // header ("Phone", "Work Phone").  Keep in step with index.html/parseCsv.
   var ixPhone2 = findIndex_(header, function (h) {
     return h.indexOf('phone') >= 0 && (h.indexOf('2') >= 0 || h.indexOf('backup') >= 0 ||
-                                       h.indexOf('cell') >= 0 || h.indexOf('secondary') >= 0);
+                                       h.indexOf('cell') >= 0 || h.indexOf('secondary') >= 0 ||
+                                       h.indexOf('personal') >= 0);
   });
   var ixPhone = findIndex_(header, function (h, i) { return h.indexOf('phone') >= 0 && i !== ixPhone2; });
   var ixBat  = findIndex_(header, function (h) { return h.indexOf('score') >= 0 && h.indexOf('batt') >= 0; });

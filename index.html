@@ -895,8 +895,8 @@ function renderActive() {
   updateBatPreview(); updateSvcPreview(); updateRosPreview();
 }
 
-// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Phone |
-// Phone 2 | Battery Score | Other SVC Score.  The two score columns are optional:
+// Minimal CSV parser. Columns: Canonical Name | Role | Aliases | Email | Work Phone |
+// Personal Phone | Battery Score | Other SVC Score.  The two score columns are optional:
 // when absent, bat_score / svc_score keys are left OFF the record entirely, which
 // is how rosterCarriesScores() tells "Sheet has no score columns yet" apart from
 // "Sheet has score columns and this cell is blank".
@@ -926,12 +926,17 @@ function parseCsv(text) {
   const ixRole    = header.findIndex(h => h.includes('role'));
   const ixAliases = header.findIndex(h => h.includes('alias'));
   const ixEmail   = header.findIndex(h => h.includes('email'));
-  // Two phone columns: "Phone" (primary) and "Phone 2" (backup / cell). Match the
-  // backup by a phone-ish header that also carries a 2/backup/cell/secondary
-  // marker; the primary is the first phone-ish header that ISN'T the backup.
+  // Two phone columns: "Work Phone" (primary, what the wake-up ladder dials first)
+  // and "Personal Phone" (backup / cell).  Older Sheets call them "Phone" and
+  // "Phone 2" and still work.  Match the backup by a phone-ish header that also
+  // carries a 2/backup/cell/secondary/personal marker; the primary is the first
+  // phone-ish header that ISN'T the backup.  Keep this list in step with
+  // sheet_writeback.gs: renaming a header without a marker silently reads that
+  // column as blank (the "Personal Phone" rename did exactly that on 2026-11-07).
   const ixPhone2  = header.findIndex(h => h.includes('phone') &&
                      (h.includes('2') || h.includes('backup') ||
-                      h.includes('cell') || h.includes('secondary')));
+                      h.includes('cell') || h.includes('secondary') ||
+                      h.includes('personal')));
   const ixPhone   = header.findIndex((h, i) => h.includes('phone') && i !== ixPhone2);
   // Score columns, matched on header TEXT -- position and order are irrelevant.
   // Battery scale (1-5): any score header naming battery ("Battery Score",

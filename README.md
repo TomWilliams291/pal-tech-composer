@@ -103,7 +103,7 @@ A **blank** score cell means "no opinion": that tech is omitted from the email
 body, and `scores_watcher` leaves their existing score untouched. It does not
 erase anything.
 
-Sheet columns: `Canonical Name, Role, Aliases, Email, Phone, Phone 2,
+Sheet columns: `Canonical Name, Role, Aliases, Email, Work Phone, Personal Phone,
 Battery Score, Other SVC Score`. The two score columns are optional — with a
 Sheet that lacks them the composer falls back to the old per-browser entry
 behaviour, so adding them can be done at any time.
