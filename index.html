@@ -10,32 +10,32 @@
 <meta name="theme-color" content="#c1121f">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh}
-.hdr{background:#16213e;padding:14px 24px;border-bottom:2px solid #c1121f;display:flex;align-items:center;gap:16px}
-.hdr h1{font-size:17px;font-weight:700;color:#fff}
-.hdr p{font-size:11px;color:#888;margin-top:2px}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#ffffff;color:#111827;min-height:100vh}
+.hdr{background:#f5f6f8;padding:14px 24px;border-bottom:2px solid #c1121f;display:flex;align-items:center;gap:16px}
+.hdr h1{font-size:17px;font-weight:700;color:#111827}
+.hdr p{font-size:12.5px;color:#566070;margin-top:2px}
 .wrap{display:flex;gap:14px;padding:14px;max-width:1280px;margin:0 auto}
 .form{flex:1;min-width:0}
 .right{width:410px;flex-shrink:0}
 @media(max-width:900px){.wrap{flex-direction:column}.right{width:100%}}
-.card{background:#16213e;border:1px solid #0f3460;border-radius:8px;padding:14px;margin-bottom:10px}
-.ct{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.card{background:#f5f6f8;border:1px solid #b6bdc9;border-radius:8px;padding:14px;margin-bottom:10px}
+.ct{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:11px;display:flex;align-items:center;gap:8px}
 .row{display:flex;gap:8px;margin-bottom:7px;align-items:center}
-.lbl{font-size:11.5px;color:#999;white-space:nowrap;min-width:88px}
-input[type=text],input[type=number],input[type=url],select{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:6px 9px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s}
+.lbl{font-size:13px;color:#566070;white-space:nowrap;min-width:88px}
+input[type=text],input[type=number],input[type=url],select{background:#ffffff;border:1px solid #b6bdc9;border-radius:4px;color:#111827;padding:6px 9px;font-size:14.5px;font-family:inherit;width:100%;transition:border-color .15s}
 input[type=text]:focus,input[type=number]:focus,input[type=url]:focus,select:focus{outline:none;border-color:#c1121f}
-input::placeholder{color:#3a4a5a}
+input::placeholder{color:#7b8494}
 input[type=number]{width:64px;text-align:center}
 /* Sheet-owned scores: readable, clearly not editable here. */
-input[type=number]:disabled{background:#16213e;border-color:#1b2a4a;color:#b8c8d8;cursor:not-allowed}
+input[type=number]:disabled{background:#f5f6f8;border-color:#dfe3ea;color:#1f2937;cursor:not-allowed}
 .score-row{display:flex;gap:8px;margin-bottom:5px;align-items:center}
-.score-row .nm{flex:1;font-size:13px;color:#e0e0e0;padding:5px 0}
-.score-row .role-tag{font-size:10px;color:#7a8a9a;flex-shrink:0}
+.score-row .nm{flex:1;font-size:14.5px;color:#111827;padding:5px 0}
+.score-row .role-tag{font-size:12px;color:#566070;flex-shrink:0}
 /* Per-row write-back status (saving / saved / failed).  Fixed width so the
    inputs don't jump as the text changes. */
-.score-row .wb{font-size:10.5px;flex:0 0 118px;text-align:left;color:#3a5a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.score-row .wb.saving{color:#e8a020}
-.score-row .wb.saved{color:#2ea043}
+.score-row .wb{font-size:12px;flex:0 0 118px;text-align:left;color:#566070;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-row .wb.saving{color:#9a5b00}
+.score-row .wb.saved{color:#1a7f37}
 .score-row .wb.failed{color:#c1121f;cursor:pointer;text-decoration:underline dotted}
 .tech-row{display:flex;gap:6px;margin-bottom:5px;align-items:center}
 .tech-row input:nth-child(1){flex:1.2}
@@ -43,38 +43,44 @@ input[type=number]:disabled{background:#16213e;border-color:#1b2a4a;color:#b8c8d
 .tech-row input:nth-child(3){flex:1.4}
 .tech-row input:nth-child(4){flex:1.5}
 .tech-row input:nth-child(5),.tech-row input:nth-child(6){flex:0 0 120px}
-.tech-row .nm{font-size:13px}
-input[type=email]{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:6px 9px;font-size:13px;font-family:inherit;width:100%;transition:border-color .15s}
+.tech-row .nm{font-size:14.5px}
+input[type=email]{background:#ffffff;border:1px solid #b6bdc9;border-radius:4px;color:#111827;padding:6px 9px;font-size:14.5px;font-family:inherit;width:100%;transition:border-color .15s}
 input[type=email]:focus{outline:none;border-color:#c1121f}
-.rm{background:none;border:none;color:#3a5a7a;cursor:pointer;font-size:16px;padding:2px 5px;line-height:1;border-radius:3px;flex-shrink:0}
+.rm{background:none;border:none;color:#566070;cursor:pointer;font-size:16px;padding:2px 5px;line-height:1;border-radius:3px;flex-shrink:0}
 .rm:hover{color:#c1121f}
-.addrow{background:none;border:1px dashed #1a3050;color:#4a6a8a;cursor:pointer;font-size:12px;padding:5px 10px;border-radius:4px;width:100%;text-align:left;margin-top:2px;font-family:inherit}
+.addrow{background:none;border:1px dashed #b6bdc9;color:#374151;cursor:pointer;font-size:13.5px;padding:5px 10px;border-radius:4px;width:100%;text-align:left;margin-top:2px;font-family:inherit}
 .addrow:hover{border-color:#c1121f;color:#c1121f}
-.hint{font-size:10.5px;color:#3a5a7a;margin-top:3px}
-.hint.warn{color:#e8a020}
-.pv-hdr{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:8px}
+.hint{font-size:12px;color:#566070;margin-top:3px}
+.hint.warn{color:#9a5b00}
+.pv-hdr{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#c1121f;margin-bottom:8px}
 /* Per-tab "sent to the monitor" status line, fed by the Sheet's sync block. */
-.sync{font-size:12.5px;padding:8px 10px;border-radius:6px;border:1px solid #0f3460;background:#0d1b2a;color:#b8c8d8}
-.sync.ok{border-color:#1f4d2e;color:#4ade80}
-.sync.pending{border-color:#5a3d10;color:#e8a020}
-.sync.bad{border-color:#5a1a1a;color:#f87171}
-.pv-meta{font-size:11px;color:#667;margin-bottom:4px;word-break:break-all}
-.pv-meta b{color:#aaa;font-weight:600}
-.pvbody{font-family:'Courier New',monospace;font-size:11.5px;white-space:pre-wrap;color:#b8c8d8;line-height:1.55;background:#0d1b2a;border:1px solid #0f3460;border-radius:6px;padding:12px;max-height:520px;overflow-y:auto;word-break:break-word}
-.sendbtn{display:block;width:100%;margin-top:10px;padding:11px;background:#c1121f;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;font-family:inherit}
+.sync{font-size:14px;padding:8px 10px;border-radius:6px;border:1px solid #b6bdc9;background:#ffffff;color:#1f2937}
+.sync.ok{border-color:#aee0be;color:#18813e}
+.sync.pending{border-color:#eecfa0;color:#9a5b00}
+.sync.bad{border-color:#e6a8a8;color:#ae0909}
+.pv-meta{font-size:12.5px;color:#566070;margin-bottom:4px;word-break:break-all}
+.pv-meta b{color:#374151;font-weight:600}
+.pvbody{font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#1f2937;line-height:1.55;background:#ffffff;border:1px solid #b6bdc9;border-radius:6px;padding:12px;max-height:520px;overflow-y:auto;word-break:break-word}
+.sendbtn{display:block;width:100%;margin-top:10px;padding:11px;background:#c1121f;color:#fff;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;font-family:inherit}
 .sendbtn:hover{background:#a00f1a}
-.cpybtn{display:block;width:100%;margin-top:5px;padding:8px;background:none;color:#4a6a8a;border:1px solid #0f3460;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s}
-.cpybtn:hover{border-color:#4a6a8a;color:#ccc}
-.minibtn{background:none;border:1px solid #0f3460;color:#4a6a8a;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .15s}
+.cpybtn{display:block;width:100%;margin-top:5px;padding:8px;background:none;color:#374151;border:1px solid #b6bdc9;border-radius:6px;font-size:13.5px;cursor:pointer;font-family:inherit;transition:all .15s}
+.cpybtn:hover{border-color:#566070;color:#111827}
+.minibtn{background:none;border:1px solid #b6bdc9;color:#374151;border-radius:4px;padding:4px 10px;font-size:12.5px;cursor:pointer;font-family:inherit;transition:all .15s}
 .minibtn:hover{border-color:#c1121f;color:#c1121f}
-.tabs{display:flex;gap:2px;padding:8px 24px 0;background:#16213e;border-bottom:2px solid #0f3460;flex-wrap:wrap}
-.tab-btn{padding:7px 18px;background:none;border:1px solid transparent;border-radius:6px 6px 0 0;border-bottom:none;color:#666;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;letter-spacing:.04em;transition:all .15s}
-.tab-btn.active{background:#1a1a2e;color:#e0e0e0;border-color:#0f3460;margin-bottom:-2px}
-.tab-btn:hover:not(.active){color:#aaa}
-.empty{color:#5a6a7a;font-size:12px;font-style:italic;padding:8px 0}
-textarea{background:#0d1b2a;border:1px solid #0f3460;border-radius:4px;color:#e0e0e0;padding:8px 10px;font-size:12px;font-family:'Courier New',monospace;width:100%;min-height:110px;resize:vertical;transition:border-color .15s}
+.tabs{display:flex;gap:2px;padding:8px 24px 0;background:#f5f6f8;border-bottom:2px solid #b6bdc9;flex-wrap:wrap}
+.tab-btn{padding:7px 18px;background:none;border:1px solid transparent;border-radius:6px 6px 0 0;border-bottom:none;color:#374151;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;letter-spacing:.04em;transition:all .15s}
+.tab-btn.active{background:#ffffff;color:#111827;border-color:#b6bdc9;margin-bottom:-2px}
+.tab-btn:hover:not(.active){color:#374151}
+.empty{color:#566070;font-size:13.5px;font-style:italic;padding:8px 0}
+textarea{background:#ffffff;border:1px solid #b6bdc9;border-radius:4px;color:#111827;padding:8px 10px;font-size:13.5px;font-family:'Courier New',monospace;width:100%;min-height:110px;resize:vertical;transition:border-color .15s}
 textarea:focus{outline:none;border-color:#c1121f}
+.embedded .hdr h1,.embedded .hdr p{display:none}
+.embedded .hdr{padding:6px 24px}
 </style>
+<script>
+/* Inside the AutoNav window the tab bar already names this tool. */
+if (window.self !== window.top) document.documentElement.classList.add("embedded");
+</script>
 </head>
 <body>
 <div class="hdr">
@@ -82,7 +88,7 @@ textarea:focus{outline:none;border-color:#c1121f}
     <h1>PAL Tech Composer V2.0</h1>
     <p>Pop-A-Lock of Northern NJ &mdash; roster + battery / other-SVC scores</p>
   </div>
-  <div style="font-size:11px;color:#7a8a9a;text-align:right" id="rosterBanner">Roster: not loaded</div>
+  <div style="font-size:12.5px;color:#566070;text-align:right" id="rosterBanner">Roster: not loaded</div>
 </div>
 <div class="tabs">
   <button class="tab-btn active" id="tab-bat"   onclick="switchTab('bat',this)">Battery Scores</button>
@@ -181,7 +187,7 @@ textarea:focus{outline:none;border-color:#c1121f}
       <button class="cpybtn" style="width:auto;margin:0;padding:6px 14px" onclick="refreshFromSheet()">Refresh from Sheet</button>
       <button class="cpybtn" style="width:auto;margin:0;padding:6px 14px" onclick="openEditorUrl()">Edit in Google Sheets</button>
     </div>
-    <div class="hint" id="sheetStatus" style="margin-top:8px;color:#7a8a9a">Roster not loaded yet.</div>
+    <div class="hint" id="sheetStatus" style="margin-top:8px;color:#566070">Roster not loaded yet.</div>
     <div class="hint" style="margin-top:10px">Both the Schedule Composer and this Tech Composer read the same Sheet so tech names stay consistent. The CSV URL comes from File &rarr; Share &rarr; Publish to web &rarr; CSV. The Editor URL is whatever's in your address bar while editing the sheet. URLs are saved in this browser's localStorage. Sheet columns: <b>Canonical Name, Role, Aliases, Email</b> (role = rs / jss / battery_tech / battery_installer; Email is optional, used for per-tech alert delivery).</div>
     <div style="margin-top:10px">
       <div class="hint" style="margin-bottom:4px">Offline / fetch-blocked fallback &mdash; paste raw CSV:</div>
@@ -203,7 +209,7 @@ textarea:focus{outline:none;border-color:#c1121f}
       <span class="lbl">&nbsp;</span>
       <button class="cpybtn" style="width:auto;margin:0;padding:6px 14px" onclick="testWriteback()">Test connection</button>
     </div>
-    <div class="hint" id="writebackStatus" style="margin-top:8px;color:#7a8a9a"></div>
+    <div class="hint" id="writebackStatus" style="margin-top:8px;color:#566070"></div>
     <div class="hint" style="margin-top:10px">With this set, the Battery / Other SVC score boxes are editable and every change is written straight into the Sheet's score columns, so whoever opens the app next sees it. The URL comes from deploying <b>sheet_writeback.gs</b> (in this app's repo) as a Web app on the roster Sheet &mdash; Extensions &rarr; Apps Script &rarr; Deploy. Without it, scores are read-only here and are changed in the Sheet.</div>
   </div>
 </div>
@@ -702,11 +708,11 @@ function renderTechs() {
         // Roster Update.
         row.innerHTML =
           `<div class="nm" style="flex:1.2">${escapeHtml(t.name)}</div>` +
-          `<div class="nm" style="flex:0 0 130px;color:#7a8a9a">${escapeHtml(t.role)}</div>` +
-          `<div class="nm" style="flex:1.4;color:#7a8a9a">${escapeHtml(aliases) || '<span style="color:#3a4a5a">(no aliases)</span>'}</div>` +
-          `<div class="nm" style="flex:1.5;color:#7a8a9a">${escapeHtml(email) || '<span style="color:#3a4a5a">(no email)</span>'}</div>` +
-          `<div class="nm" style="flex:0 0 120px;color:#7a8a9a">${escapeHtml(phone) || '<span style="color:#3a4a5a">(no phone)</span>'}</div>` +
-          `<div class="nm" style="flex:0 0 120px;color:#7a8a9a">${escapeHtml(phone2) || '<span style="color:#3a4a5a">(no backup)</span>'}</div>`;
+          `<div class="nm" style="flex:0 0 130px;color:#566070">${escapeHtml(t.role)}</div>` +
+          `<div class="nm" style="flex:1.4;color:#566070">${escapeHtml(aliases) || '<span style="color:#7b8494">(no aliases)</span>'}</div>` +
+          `<div class="nm" style="flex:1.5;color:#566070">${escapeHtml(email) || '<span style="color:#7b8494">(no email)</span>'}</div>` +
+          `<div class="nm" style="flex:0 0 120px;color:#566070">${escapeHtml(phone) || '<span style="color:#7b8494">(no phone)</span>'}</div>` +
+          `<div class="nm" style="flex:0 0 120px;color:#566070">${escapeHtml(phone2) || '<span style="color:#7b8494">(no backup)</span>'}</div>`;
         list.appendChild(row);
       });
     }
@@ -1065,11 +1071,11 @@ function updateRosterBanner() {
   const offlinePrefix = navigator.onLine ? '' : '● OFFLINE — ';
   let body, color;
   if (!techs.length) {
-    body = 'Roster: not loaded'; color = navigator.onLine ? '#7a8a9a' : '#c1121f';
+    body = 'Roster: not loaded'; color = navigator.onLine ? '#566070' : '#c1121f';
   } else {
     const suffix = rosterFromCache ? ` (cached, ${relativeTime(rosterFetchedAt)})` : '';
     body = `Roster: ${techs.length} techs${suffix}`;
-    color = navigator.onLine ? (rosterFromCache ? '#e8a020' : '#2ea043') : '#c1121f';
+    color = navigator.onLine ? (rosterFromCache ? '#9a5b00' : '#1a7f37') : '#c1121f';
   }
   banner.textContent = offlinePrefix + body;
   banner.style.color = color;
